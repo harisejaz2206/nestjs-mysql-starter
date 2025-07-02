@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title><%= header.title; %></title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 0;
+        }
+
+        p.subtitle {
+            text-align: center;
+            margin-top: 5px;
+            font-size: 0.9em;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            font-size: 0.95em;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f5f5f5;
+        }
+    </style>
+</head>
+<body>
+<h2><%= header.title; %></h2>
+<p class="subtitle"><%= header.subtitle; %></p>
+
+<table>
+    <thead>
+    <tr>
+        <th>Academy</th>
+        <th>Student ID</th>
+        <th>Name</th>
+        <th>Raw Score</th>
+        <th>Total Score</th>
+        <th>Percentage</th>
+    </tr>
+    </thead>
+    <tbody>
+    <% results.forEach(r => { %>
+        <tr>
+            <td><%= r.academyName; %></td>
+            <td><%= r.studentId; %></td>
+            <td><%= r.name; %></td>
+            <td><%= r.rawScore; %></td>
+            <td><%= r.totalScore; %></td>
+            <td><%= r.percentage.toFixed(2); %> %</td>
+        </tr>
+    <% }); %>
+    </tbody>
+</table>
+</body>
+</html>

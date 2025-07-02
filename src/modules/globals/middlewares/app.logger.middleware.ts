@@ -1,0 +1,28 @@
+import { Injectable, Logger, NestMiddleware } from '@nestjs/common';
+import { v4 as uuidv4 } from 'uuid';
+import { getClientIp } from 'request-ip';
+import { NextFunction, Request, Response } from 'express';
+
+@Injectable()
+export class AppLoggerMiddleware implements NestMiddleware {
+  private logger = new Logger('HTTP');
+
+  use(request: Request, response: Response, next: NextFunction): void {
+    const { method, originalUrl } = request;
+    const ip = request['clientIp'] || getClientIp(request);
+    request['timeRequestReceived'] = new Date().getTime();
+    request['reqId'] = uuidv4();
+    const userAgent = request.get('user-agent') || '';
+
+    response.on('close', () => {
+      const time = new Date().getTime() - request['timeRequestReceived'];
+      const { statusCode } = response;
+
+      this.logger.log(
+        `${method} ${originalUrl} ${statusCode} ${time}ms - ${userAgent} - ${ip}`,
+      );
+    });
+
+    next();
+  }
+}

@@ -1,0 +1,24 @@
+
+
+import { DataSource } from 'typeorm';
+export const connectionSource = new DataSource({
+  type: 'DB Type (`mysql` or `mariadb` (for localhost))',
+  host: 'DB Hostname',
+  port: 3306, // DB Port
+  username: 'DB Username',
+  password: 'DB Password',
+  database: 'Db/Schema Name',
+  logging: false,
+  migrationsTransactionMode: 'all',
+  ssl: true,
+  synchronize: false,
+  entities: [
+    'dist/src/models/*.entity{.ts,.js}',
+    'dist/src/modules/*/entities/*.entity{.ts,.js}',
+  ],
+  migrationsTableName: '_schema',
+  migrations: ['dist/src/migrations/*.js'],
+  connectTimeout: 1000 * 20,
+  // extra: { connectionLimit: 50, connectTimeout: 1000 * 20 },
+});
+

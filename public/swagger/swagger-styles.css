@@ -1,0 +1,30 @@
+/* Change the color of the "Authorize" button */
+.swagger-ui .topbar .btn.authorize {
+    background-color: #002544 !important;
+    border-color: #002544 !important;
+    color: white !important;
+}
+
+/* Change the color of the tags (section titles) */
+.swagger-ui .opblock-tag span {
+    color: #002544 !important;
+}
+/* Change the color of the tags (section titles) */
+.swagger-ui button .btn .authorize {
+    background-color: #002544 !important;
+    border-color: #002544 !important;
+    color: white !important;
+
+}
+
+/* Optional: Hover effects for the authorize button */
+.swagger-ui .topbar .btn.authorize:hover {
+    background-color: #001d33 !important;
+    border-color: #001d33 !important;
+}
+
+/* Optional: Change the background and text color for the tag section when expanded */
+.swagger-ui .opblock-tag-section.is-open h4 {
+    background-color: #001d33 !important;
+    color: white !important;
+}

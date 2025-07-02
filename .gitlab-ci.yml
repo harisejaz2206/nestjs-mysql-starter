@@ -1,0 +1,84 @@
+stages:
+  - build
+  - deploy
+
+# Build Stage
+build:
+  stage: build
+  image: node:18-alpine
+  environment:
+    name: $CI_ENVIRONMENT_NAME
+    url: $CI_ENVIRONMENT_URL
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "release/phase-1"'
+      variables:
+        CI_ENVIRONMENT_NAME: phase-1
+        CI_ENVIRONMENT_URL: https://kfs-api.septemsystems.com/api/v1/api-docs
+    - if: '$CI_COMMIT_BRANCH == "staging"'
+      variables:
+        CI_ENVIRONMENT_NAME: staging
+        CI_ENVIRONMENT_URL: https://kfs-api.septemsystems.com/api/v1/api-docs
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      variables:
+        CI_ENVIRONMENT_NAME: production
+    - when: never # Never run this job automatically
+  before_script:
+    - echo $ORM_CONFIG >> ormconfig.ts
+    - echo $ORM_CONFIG
+    - export NODE_OPTIONS=--max_old_space_size=4096
+    - echo $ENV >> .env
+    - sed -i.bak 's/\ || /\n/g' .env
+  script:
+    - npm install --progress=false
+    - npm run build
+  artifacts:
+    expire_in: 1 week
+    paths:
+      - dist
+
+
+# Deploy to Development (staging branch)
+deploy:
+  stage: deploy
+  image: ubuntu:20.04
+  needs: # Requires build_prod to be successful before running
+    - build
+  environment:
+    name: $CI_ENVIRONMENT_NAME
+    url: $CI_ENVIRONMENT_URL
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "release/phase-1"'
+      variables:
+        CI_ENVIRONMENT_NAME: phase-1
+        CI_ENVIRONMENT_URL: https://kfs-api.septemsystems.com/api/v1/api-docs
+    - if: '$CI_COMMIT_BRANCH == "staging"'
+      variables:
+        CI_ENVIRONMENT_NAME: staging
+        CI_ENVIRONMENT_URL: https://kfs-api.septemsystems.com/api/v1/api-docs
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      variables:
+        CI_ENVIRONMENT_NAME: production
+    - when: never # Never run this job automatically
+  before_script:
+    - apt-get update -qy
+    - apt-get install -y rsync
+    - apt-get install -y sshpass
+    # Setup SSH deploy keys
+    - 'which ssh-agent || ( apt-get install -qq openssh-client )'
+    - eval $(ssh-agent -s)
+    - ssh-add <(echo "$SSH_PRIVATE_KEY")
+    - mkdir -p ~/.ssh
+    - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
+    - echo $ORM_CONFIG >> ormconfig.ts
+    - echo $FIREBASE_SERVICE_ACCOUNT_JSON >> firebase.service.account.json
+    - echo $ENV >> .env
+    - sed -i.bak 's/\ || /\n/g' .env
+  script:
+    - sshpass rsync -a dist/ $SITE_USERNAME@$SERVER_IP:$SITE_PATH/dist
+    - sshpass rsync -a ecosystem.config.js $SITE_USERNAME@$SERVER_IP:$SITE_PATH
+    - sshpass rsync -a ormconfig.ts $SITE_USERNAME@$SERVER_IP:$SITE_PATH
+    - sshpass rsync -a package.json $SITE_USERNAME@$SERVER_IP:$SITE_PATH
+    - sshpass rsync -a package-lock.json $SITE_USERNAME@$SERVER_IP:$SITE_PATH
+    - sshpass rsync -a firebase.service.account.json $SITE_USERNAME@$SERVER_IP:$SITE_PATH
+    - sshpass rsync -a .env $SITE_USERNAME@$SERVER_IP:$SITE_PATH
+    - sshpass ssh $SITE_USERNAME@$SERVER_IP "cd $SITE_PATH;npm install --progress=false;typeorm migration:run -d dist/ormconfig.js;pm2 reload ecosystem.config.js --env staging"

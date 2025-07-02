@@ -1,0 +1,10 @@
+typeorm:
+  - pre-req-for-migration-commands:
+      - npm install
+      - npm run build
+  - gen-migrations:
+      - npm run typeorm migration:generate src/migrations/$migrationName -d dist/ormconfig.js
+  - run-migrations:
+      - npm run typeorm migration:run -d dist/ormconfig.js --transaction each
+  - revert-migrations:
+      - npm run typeorm migration:revert -d dist/ormconfig.js

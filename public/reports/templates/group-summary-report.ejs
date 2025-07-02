@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <title><%= header.title; %></title>
+    <style>
+        @media print {
+            .page-break {
+                page-break-before: always;
+            }
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            padding: 40px;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .page-content {
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 5px;
+        }
+
+        p.subtitle {
+            text-align: center;
+            margin-top: 0;
+            font-size: 0.9em;
+            color: #555;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 25px;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f5f5f5;
+        }
+    </style>
+</head>
+<body>
+<div class="page-content">
+    <h2><%= header.title; %></h2>
+    <p class="subtitle"><%= header.subtitle; %></p>
+
+    <table>
+        <thead>
+        <tr>
+            <th>Student Name</th>
+            <th>Student Fire ID</th>
+            <th>Score</th>
+            <th>Percentage</th>
+            <th>Status</th>
+        </tr>
+        </thead>
+        <tbody>
+        <% results.forEach((r, index) => { %>
+            <% if (index !== 0 && index % 30 === 0) { %>
+        </tbody>
+    </table>
+    <div class="page-break"></div>
+    <div class="page-content">
+        <table>
+            <thead>
+            <tr>
+                <th>Student Name</th>
+                <th>Student Fire ID</th>
+                <th>Score</th>
+                <th>Percentage</th>
+                <th>Status</th>
+            </tr>
+            </thead>
+            <tbody>
+            <% } %>
+            <tr>
+                <td><%= r.student; %></td>
+                <td><%= r.fireId; %></td>
+                <td><%= r.score; %></td>
+                <td><%= r.percentage; %>%</td>
+                <td><%= r.status; %></td>
+            </tr>
+            <% }); %>
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
