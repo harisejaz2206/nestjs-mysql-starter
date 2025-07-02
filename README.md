@@ -60,17 +60,21 @@ npm run start:dev
 The API will be available at `http://localhost:3000/api/v1`
 API documentation: `http://localhost:3000/api-docs`
 
-## Project Structure
+### Project Structure
+
+```
 src/
 ├── modules/
-│ ├── auth/ # Authentication & JWT handling
-│ ├── users/ # User management
-│ ├── aws/ # AWS S3 integration
-│ ├── uploads/ # File upload handling
-│ ├── globals/ # Shared utilities, guards, decorators
-│ └── global-service/ # Global services (email, logger, etc.)
-├── migrations/ # Database migrations
-└── main.ts # Application entry point
+│   ├── auth/            # Authentication & JWT handling
+│   ├── users/           # User management
+│   ├── aws/             # AWS S3 integration
+│   ├── uploads/         # File upload handling
+│   ├── globals/         # Shared utilities, guards, decorators
+│   ├── global-service/  # Global services (email, logger, etc.)
+├── migrations/          # Database migrations
+└── main.ts              # Application entry point
+```
+
 
 ## Available Scripts
 
