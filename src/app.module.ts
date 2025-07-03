@@ -22,7 +22,7 @@ import { UploadsModule } from './modules/uploads/uploads.module';
     ConfigModule.forRoot({
       load: [awsConfig],
       isGlobal: true,
-      envFilePath: ['.env.development', '.env.production', '.env.staging'],
+      envFilePath: ['.env', '.env.development', '.env.production', '.env.staging'],
       validate: validateEnv,
     }),
     TypeOrmModule.forRootAsync({

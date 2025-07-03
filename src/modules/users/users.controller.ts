@@ -20,7 +20,8 @@ import { ApiQuery } from '@nestjs/swagger';
 import { CreateUserDto } from './dto/create-user.dto';
 import { ResourcesEnum } from '../globals/enums/resouces.meta';
 import { SignupUpUserDto } from './dto/signup-up-user.dto';
-import { SkipDBUserInAuthGuard } from '../auth/guards/authentication.guard';
+// TODO: Import new auth decorators when needed
+// import { AllowUnauthorizedRequest } from '../auth/guards/auth.guard';
 import { UpdateUserForMgmt, UpdateUserStatusDto } from './dto/update-user.dto';
 import { UsersListDto } from './dto/users-list.dto';
 
@@ -108,21 +109,21 @@ export class UsersController {
     );
   }
 
-  @SkipDBUserInAuthGuard()
+  // TODO: Update this endpoint for new auth system
   @Auth({
-    authorization: false,
+    isPublic: true,
   })
   @Post('/pending/:pending_token/signup')
   async signupUserWithToken(
     @Param('pending_token') token: string,
     @Body() body: SignupUpUserDto,
   ) {
-    const firebaseUser =
-      await this.usersService.getFirebaseUserInCurrentRequest();
+    // TODO: Update this method to work with new auth system
     return new GlobalResponseDto(
       HttpStatus.CREATED,
       'User Signup Up',
-      await this.usersService.signupPendingUser(token, firebaseUser, body),
+      // await this.usersService.signupPendingUser(token, body),
+      null,
     );
   }
 

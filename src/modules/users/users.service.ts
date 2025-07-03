@@ -124,7 +124,7 @@ export class UsersService {
   @Transactional()
   async createUserOld(
     createUserDto: CreateSuperAdminUserDto,
-    role = UserRoleEnum.SuperAdmin,
+    role = UserRoleEnum.Admin,
   ): Promise<UserEntity> {
     try {
       const firebaseUser = await this.firebaseAdminService.createUser(

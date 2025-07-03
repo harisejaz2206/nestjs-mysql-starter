@@ -3,6 +3,7 @@ import {
   IsEmail,
   IsEnum,
   IsNumber,
+  IsOptional,
   IsString,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
@@ -21,6 +22,7 @@ export class EnvConfigDto {
   NODE_ENV: AppEnvironment;
 
   @IsNumber()
+  @Transform(({ value }) => parseInt(value, 10), { toClassOnly: true })
   @IsDefined()
   APP_PORT: number;
 
@@ -28,11 +30,7 @@ export class EnvConfigDto {
   @IsDefined()
   MY_SECRET_FOR_SUPER: string;
 
-  @IsString()
-  @IsDefined()
-  FIREBASE_API_KEY: string;
-
-  // database
+  // Database
   @IsString()
   @IsDefined()
   DB_HOST: string;
@@ -52,47 +50,95 @@ export class EnvConfigDto {
   @IsNumber()
   @Transform(({ value }) => parseInt(value, 10), { toClassOnly: true })
   @IsDefined()
-  DB_PORT: string;
+  DB_PORT: number;
+
+  // JWT Configuration
+  @IsString()
+  @IsDefined()
+  JWT_SECRET: string;
 
   @IsString()
   @IsDefined()
-  SEND_GRID_API_KEY: string;
+  JWT_REFRESH_SECRET: string;
+
+  // JWT Token Secret (alias for JWT_SECRET for compatibility)
+  @IsString()
+  @IsOptional()
+  JWT_TOKEN_SECRET?: string;
+
+  // JWT Refresh Token Secret (alias for JWT_REFRESH_SECRET for compatibility)
+  @IsString()
+  @IsOptional()
+  JWT_REFRESH_TOKEN_SECRET?: string;
 
   @IsString()
-  @IsDefined()
+  @IsOptional()
+  JWT_EXPIRES_IN?: string;
+
+  @IsString()
+  @IsOptional()
+  JWT_REFRESH_EXPIRES_IN?: string;
+
+  // OTP Configuration
+  @IsNumber()
+  @Transform(({ value }) => parseInt(value, 10), { toClassOnly: true })
+  @IsOptional()
+  OTP_EXPIRATION_MINUTES?: number;
+
+  // Bcrypt Configuration
+  @IsNumber()
+  @Transform(({ value }) => parseInt(value, 10), { toClassOnly: true })
+  @IsOptional()
+  BCRYPT_SALT_ROUNDS?: number;
+
+  // Email Configuration (Optional)
+  @IsString()
+  @IsOptional()
+  SEND_GRID_API_KEY?: string;
+
+  @IsString()
+  @IsOptional()
   @IsEmail()
-  SENDER_EMAIL: string;
+  SENDER_EMAIL?: string;
+
+  // Firebase (Optional - Legacy)
+  @IsString()
+  @IsOptional()
+  FIREBASE_API_KEY?: string;
+
+  // Aspose Service (Optional)
+  @IsString()
+  @IsOptional()
+  ASPOSE_BASE_URL?: string;
 
   @IsString()
-  @IsDefined()
-  ASPOSE_BASE_URL: string;
+  @IsOptional()
+  ASPOSE_CLIENT_ID?: string;
 
   @IsString()
-  @IsDefined()
-  ASPOSE_CLIENT_ID: string;
+  @IsOptional()
+  ASPOSE_CLIENT_SECRET?: string;
 
+  // Frontend URL (Optional)
   @IsString()
-  @IsDefined()
-  ASPOSE_CLIENT_SECRET: string;
+  @IsOptional()
+  KEAN_FRONTEND_URL?: string;
 
+  // Redis Configuration (Optional)
   @IsString()
-  @IsDefined()
-  KEAN_FRONTEND_URL: string;
-
-  @IsString()
-  @IsDefined()
-  REDIS_HOST: string;
+  @IsOptional()
+  REDIS_HOST?: string;
 
   @IsNumber()
   @Transform(({ value }) => parseInt(value, 10), { toClassOnly: true })
-  @IsDefined()
-  REDIS_PORT: string;
+  @IsOptional()
+  REDIS_PORT?: number;
 
   @IsString()
-  @IsDefined()
-  REDIS_USERNAME: string;
+  @IsOptional()
+  REDIS_USERNAME?: string;
 
   @IsString()
-  @IsDefined()
-  REDIS_PASSWORD: string;
+  @IsOptional()
+  REDIS_PASSWORD?: string;
 }
