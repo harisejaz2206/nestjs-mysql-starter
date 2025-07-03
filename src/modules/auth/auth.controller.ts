@@ -11,9 +11,12 @@ import { RegisterDto } from './dto/register.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { GlobalResponseDto } from '../globals/dtos/global.response.dto';
 import { ILogin } from './interfaces/login.interface';
+import { IToken } from './interfaces/auth-token.interface';
 import { ApiController, Public } from '../globals/decorators/global.decorators';
+import { AUTH_CONSTANTS } from './constants/auth.constants';
 
 @ApiController({
   prefix: '/auth',
@@ -35,7 +38,7 @@ export class AuthController {
     const result = await this.authService.login(loginDto);
     return new GlobalResponseDto(
       HttpStatus.OK,
-      'Login successful',
+      AUTH_CONSTANTS.SUCCESS.LOGIN,
       result,
     );
   }
@@ -52,7 +55,7 @@ export class AuthController {
     await this.authService.register(registerDto);
     return new GlobalResponseDto(
       HttpStatus.CREATED,
-      'Registration successful. Please check your email to verify your account.',
+      AUTH_CONSTANTS.SUCCESS.REGISTRATION,
       null,
     );
   }
@@ -69,7 +72,7 @@ export class AuthController {
     const result = await this.authService.verifyEmail(verifyEmailDto);
     return new GlobalResponseDto(
       HttpStatus.OK,
-      'Email verified successfully',
+      AUTH_CONSTANTS.SUCCESS.EMAIL_VERIFIED,
       result,
     );
   }
@@ -86,7 +89,7 @@ export class AuthController {
     await this.authService.forgotPassword(forgotPasswordDto);
     return new GlobalResponseDto(
       HttpStatus.OK,
-      'Password reset OTP sent to your email',
+      AUTH_CONSTANTS.SUCCESS.PASSWORD_RESET_SENT,
       null,
     );
   }
@@ -103,7 +106,7 @@ export class AuthController {
     await this.authService.resetPassword(resetPasswordDto);
     return new GlobalResponseDto(
       HttpStatus.OK,
-      'Password reset successful',
+      AUTH_CONSTANTS.SUCCESS.PASSWORD_RESET,
       null,
     );
   }
@@ -120,8 +123,25 @@ export class AuthController {
     await this.authService.resendOTP(resendOTPDto);
     return new GlobalResponseDto(
       HttpStatus.OK,
-      'OTP sent successfully',
+      AUTH_CONSTANTS.SUCCESS.OTP_SENT,
       null,
+    );
+  }
+
+  @Public()
+  @Post('/refresh-token')
+  @ApiBody({ type: RefreshTokenDto })
+  @ApiOperation({
+    summary: 'Refresh Token',
+    description: 'Generate new access token using refresh token.',
+  })
+  @HttpCode(HttpStatus.OK)
+  async refreshToken(@Body() refreshTokenDto: RefreshTokenDto): Promise<GlobalResponseDto<IToken>> {
+    const result = await this.authService.refreshToken(refreshTokenDto.refreshToken);
+    return new GlobalResponseDto(
+      HttpStatus.OK,
+      AUTH_CONSTANTS.SUCCESS.TOKEN_REFRESHED,
+      result,
     );
   }
 }

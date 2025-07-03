@@ -2,7 +2,6 @@ export enum EnvKeysEnum {
   AppPort = 'APP_PORT',
   NodeEnv = 'NODE_ENV',
   MySecretForSuper = 'MY_SECRET_FOR_SUPER',
-  FirebaseApiKey = 'FIREBASE_API_KEY',
   DbHost = 'DB_HOST',
   DbPort = 'DB_PORT',
   DbUser = 'DB_USER',

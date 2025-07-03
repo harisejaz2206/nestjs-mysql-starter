@@ -1,24 +1,25 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+import { AUTH_CONSTANTS } from '../constants/auth.constants';
 
 @Injectable()
 export class AuthHelperService {
+  constructor(private readonly configService: ConfigService) {}
+
+  /**
+   * Hash password using bcrypt
+   */
   hashPassword(password: string): string {
-    const salt = bcrypt.genSaltSync(Number(process.env.BCRYPT_SALT) || 10);
+    const saltRounds = Number(this.configService.get<string>('BCRYPT_SALT')) || AUTH_CONSTANTS.DEFAULT_BCRYPT_ROUNDS;
+    const salt = bcrypt.genSaltSync(saltRounds);
     return bcrypt.hashSync(password, salt);
   }
 
+  /**
+   * Compare provided password with hashed password
+   */
   comparePassword(providedPassword: string, storedHashedPassword: string): boolean {
     return bcrypt.compareSync(providedPassword, storedHashedPassword);
-  }
-
-  generateExpiryTime(duration = process.env.REGISTER_OTP_EXPIRATION || '15'): number {
-    const currentTime = new Date().getTime();
-    const expiryTime = currentTime + Number(duration) * 60 * 1000;
-    return Number(expiryTime);
-  }
-
-  generateOTP(): number {
-    return Math.floor(1000 + Math.random() * 9000);
   }
 } 

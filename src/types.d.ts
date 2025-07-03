@@ -4,7 +4,6 @@ import { NoInferType } from '@nestjs/config/dist/types';
 import { Path, PathValue } from '@nestjs/config';
 import { EnvKeysEnum } from './modules/globals/enums/env.enum';
 import { UserEntity } from './modules/users/entities/user.entity';
-import { auth } from 'firebase-admin';
 
 declare module '@nestjs/config' {
   interface ConfigService {
@@ -36,6 +35,4 @@ declare module 'express' {
   interface Request {
     user: UserEntity;
   }
-
-  interface FirebaseUserRecord extends auth.UserRecord {}
 }

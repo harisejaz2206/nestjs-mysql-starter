@@ -1,4 +1,4 @@
-import { NestFactory, Reflector } from '@nestjs/core';
+import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidateTransformInterceptor } from './modules/globals/interceptors/validate.transform.interceptor';
 import { ValidationPipe } from '@nestjs/common';
@@ -35,7 +35,6 @@ async function bootstrap() {
       name: 'AppBootstrap',
     },
   });
-  const reflector = app.get(Reflector);
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
@@ -49,10 +48,9 @@ async function bootstrap() {
 
   app.useGlobalInterceptors(new ValidateTransformInterceptor());
   
-  // Configure AuthGuard with UserEntity repository
-  const dataSource = app.get(DataSource);
-  const userRepository = dataSource.getRepository(UserEntity);
-  app.useGlobalGuards(new AuthGuard(userRepository, reflector));
+  // Use dependency injection to get the AuthGuard with all its dependencies
+  const authGuard = app.get(AuthGuard);
+  app.useGlobalGuards(authGuard);
   
   useContainer(app.select(AppModule), { fallbackOnErrors: true });
   app.useGlobalFilters(new HttpExceptionFilter());

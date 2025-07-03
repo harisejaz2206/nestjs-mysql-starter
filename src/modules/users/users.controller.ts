@@ -1,5 +1,6 @@
 import {
   Body,
+  Delete,
   Get,
   HttpStatus,
   Param,
@@ -7,7 +8,6 @@ import {
   Post,
   Put,
   Query,
-  SetMetadata,
   UnauthorizedException,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
@@ -17,12 +17,7 @@ import { ApiController, Auth } from '../globals/decorators/global.decorators';
 import { ConfigService } from '@nestjs/config';
 import { EnvKeysEnum } from '../globals/enums/env.enum';
 import { ApiQuery } from '@nestjs/swagger';
-import { CreateUserDto } from './dto/create-user.dto';
-import { ResourcesEnum } from '../globals/enums/resouces.meta';
-import { SignupUpUserDto } from './dto/signup-up-user.dto';
-// TODO: Import new auth decorators when needed
-// import { AllowUnauthorizedRequest } from '../auth/guards/auth.guard';
-import { UpdateUserForMgmt, UpdateUserStatusDto } from './dto/update-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 import { UsersListDto } from './dto/users-list.dto';
 
 @ApiController({
@@ -36,19 +31,19 @@ export class UsersController {
     private readonly configService: ConfigService,
   ) {}
 
+  /**
+   * Get current user profile
+   */
   @Get('profile')
-  async findOne() {
-    const user = await this.usersService.getCurrentUser([
-      'student',
-      'role',
-      'role.permissions',
-    ]);
-    return new GlobalResponseDto(HttpStatus.OK, 'Get User', user);
+  async getProfile() {
+    const user = await this.usersService.getCurrentUser();
+    return new GlobalResponseDto(HttpStatus.OK, 'Get User Profile', user);
   }
 
-  @Auth({
-    isPublic: true,
-  })
+  /**
+   * Create super admin user (protected by secret code)
+   */
+  @Auth({ isPublic: true })
   @ApiQuery({
     name: 'secretCode',
     required: true,
@@ -63,79 +58,50 @@ export class UsersController {
     if (secretCode !== sec) {
       throw new UnauthorizedException('Secret does not match');
     }
+    const user = await this.usersService.createSuperAdmin(createUserDto);
     return new GlobalResponseDto(
       HttpStatus.CREATED,
-      'Create User',
-      await this.usersService.createUserOld(createUserDto),
+      'Super Admin User Created',
+      user,
     );
   }
 
-  @Post('')
-  async create(@Body() body: CreateUserDto) {
-    return new GlobalResponseDto(
-      HttpStatus.CREATED,
-      'Create User',
-      await this.usersService.createUser(body),
-    );
-  }
-
-  @Get('')
+  /**
+   * Get all users with pagination and filtering
+   */
+  @Get()
   async findAll(@Query() query: UsersListDto) {
-    return new GlobalResponseDto(
-      HttpStatus.CREATED,
-      'Create User',
-      await this.usersService.findAll(query),
-    );
+    const result = await this.usersService.findAll(query);
+    return new GlobalResponseDto(HttpStatus.OK, 'Get All Users', result);
   }
 
-  @Put('/pending/:id/invite')
-  async resendInviteEmail(@Param('id', new ParseIntPipe()) id: number) {
-    return new GlobalResponseDto(
-      HttpStatus.OK,
-      'Resend Invite Email',
-      await this.usersService.resendInviteEmail(id),
-    );
+  /**
+   * Get user by ID
+   */
+  @Get(':id')
+  async findOne(@Param('id', ParseIntPipe) id: number) {
+    const user = await this.usersService.findOne(id);
+    return new GlobalResponseDto(HttpStatus.OK, 'Get User', user);
   }
 
-  @Put(':id/status')
-  async updateUserStatus(
-    @Param('id', new ParseIntPipe()) id: number,
-    @Body() body: UpdateUserStatusDto,
-  ) {
-    return new GlobalResponseDto(
-      HttpStatus.OK,
-      'Update User Status',
-      await this.usersService.updateUserStatus(id, body.status),
-    );
-  }
-
-  // TODO: Update this endpoint for new auth system
-  @Auth({
-    isPublic: true,
-  })
-  @Post('/pending/:pending_token/signup')
-  async signupUserWithToken(
-    @Param('pending_token') token: string,
-    @Body() body: SignupUpUserDto,
-  ) {
-    // TODO: Update this method to work with new auth system
-    return new GlobalResponseDto(
-      HttpStatus.CREATED,
-      'User Signup Up',
-      // await this.usersService.signupPendingUser(token, body),
-      null,
-    );
-  }
-
+  /**
+   * Update user by ID
+   */
   @Put(':id')
-  async updateUserForMgmt(
-    @Param('id', new ParseIntPipe()) id: number,
-    @Body() body: UpdateUserForMgmt,
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateUserDto: UpdateUserDto,
   ) {
-    return new GlobalResponseDto(
-      HttpStatus.OK,
-      'Update User For Mgmt',
-      await this.usersService.updateUserForMgmt(id, body),
-    );
+    const user = await this.usersService.update(id, updateUserDto);
+    return new GlobalResponseDto(HttpStatus.OK, 'User Updated', user);
+  }
+
+  /**
+   * Delete user by ID (soft delete)
+   */
+  @Delete(':id')
+  async remove(@Param('id', ParseIntPipe) id: number) {
+    await this.usersService.remove(id);
+    return new GlobalResponseDto(HttpStatus.OK, 'User Deleted', null);
   }
 }

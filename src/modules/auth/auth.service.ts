@@ -11,7 +11,12 @@ import { AuthHelperService } from './helpers/auth.helper';
 import { EmailService } from '../global-service/services/email.service';
 import { ILogin } from './interfaces/login.interface';
 import { IAuthUser } from './interfaces/auth-user.interface';
+import { IToken } from './interfaces/auth-token.interface';
 import { UsersStatusEnum } from '../users/enums/users.status.enum';
+import { TokenService } from './services/token.service';
+import { OtpService } from './services/otp.service';
+import { UserValidationService } from './services/user-validation.service';
+import { AUTH_CONSTANTS } from './constants/auth.constants';
 
 @Injectable()
 export class AuthService {
@@ -33,40 +38,21 @@ export class AuthService {
     private readonly userRepository: Repository<UserEntity>,
     private readonly authHelperService: AuthHelperService,
     private readonly emailService: EmailService,
+    private readonly tokenService: TokenService,
+    private readonly otpService: OtpService,
+    private readonly userValidationService: UserValidationService,
   ) {}
 
   /**
-   * Authenticate a user based on login credentials
+   * Authenticate user with email and password
    */
   async login(loginDto: LoginDto): Promise<ILogin> {
-    const user = await this.userRepository.findOne({
-      where: { email: loginDto.email.toLowerCase() },
-      select: [
-        ...this.selectUserFields,
-        'password',
-        'otpExpireAt',
-      ] as (keyof UserEntity)[],
-    });
+    const user = await this.findUserWithPassword(loginDto.email);
+    this.userValidationService.validateUserForLogin(user);
 
-    if (!user) {
-      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
-    }
-
-    // Check if user email is verified
+    // Handle unverified email case
     if (!user.isEmailVerified) {
-      const otp = this.authHelperService.generateOTP();
-      const otpExpireAt = this.authHelperService.generateExpiryTime();
-
-      // Send verification email
-      // TODO: Implement proper email template or use existing SendGrid templates
-      // await this.emailService.sendEmail(loginDto.email, 'template-id', { otp });
-
-      // Update user with new OTP
-      await this.userRepository.update(user.id, {
-        otp,
-        otpExpireAt,
-      });
-
+      await this.handleUnverifiedEmailLogin(user);
       throw new HttpException(
         'Email not verified. Please check your email for verification OTP.',
         HttpStatus.NOT_ACCEPTABLE,
@@ -80,21 +66,15 @@ export class AuthService {
     );
 
     if (!isValidPassword) {
-      throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
+      throw new HttpException(AUTH_CONSTANTS.ERRORS.INVALID_CREDENTIALS, HttpStatus.UNAUTHORIZED);
     }
 
-    // Check if user is active
-    if (user.status !== UsersStatusEnum.ACTIVE) {
-      throw new HttpException('Account is inactive', HttpStatus.FORBIDDEN);
-    }
+    // Final validation for active status
+    this.userValidationService.validateUserActive(user);
 
-    // Update last API call
-    await this.userRepository.update(user.id, {
-      lastApiCallAt: new Date(),
-    });
-
-    // Generate tokens
-    const tokens = user.generateTokens();
+    // Update last API call and generate tokens
+    await this.updateUserLastApiCall(user.id);
+    const tokens = this.tokenService.generateTokens(user);
 
     // Remove password from response
     delete user.password;
@@ -109,23 +89,11 @@ export class AuthService {
    * Register a new user
    */
   async register(registerDto: RegisterDto): Promise<void> {
-    // Check if user already exists
-    const existingUser = await this.userRepository.findOne({
-      where: { email: registerDto.email.toLowerCase() },
-    });
+    await this.validateEmailNotExists(registerDto.email);
 
-    if (existingUser) {
-      throw new HttpException('User already exists', HttpStatus.CONFLICT);
-    }
-
-    // Hash password
     const hashedPassword = this.authHelperService.hashPassword(registerDto.password);
+    const { otp, otpExpireAt } = this.otpService.generateFreshOtp();
 
-    // Generate OTP
-    const otp = this.authHelperService.generateOTP();
-    const otpExpireAt = this.authHelperService.generateExpiryTime();
-
-    // Create user
     const user = this.userRepository.create({
       firstName: registerDto.firstName,
       lastName: registerDto.lastName,
@@ -147,33 +115,14 @@ export class AuthService {
    * Verify email with OTP
    */
   async verifyEmail(verifyEmailDto: VerifyEmailDto): Promise<ILogin> {
-    const user = await this.userRepository.findOne({
-      where: {
-        email: verifyEmailDto.email.toLowerCase(),
-        otp: Number(verifyEmailDto.otp),
-      },
-      select: [
-        ...this.selectUserFields,
-        'otpExpireAt',
-      ] as (keyof UserEntity)[],
-    });
+    const user = await this.findUserByEmailAndOtp(verifyEmailDto.email, verifyEmailDto.otp);
+    this.userValidationService.validateUserExists(user);
 
-    if (!user) {
-      throw new HttpException('Invalid OTP or email', HttpStatus.NOT_FOUND);
-    }
-
-    // Check if OTP is expired
-    if (Date.now() > user.otpExpireAt) {
-      throw new HttpException('OTP has expired', HttpStatus.GONE);
-    }
+    // Validate OTP expiry
+    this.otpService.validateOtpExpiry(user.otpExpireAt);
 
     // Update user as verified
-    await this.userRepository.update(user.id, {
-      isEmailVerified: true,
-      emailVerifiedAt: new Date(),
-      otp: null,
-      otpExpireAt: null,
-    });
+    await this.markUserAsVerified(user.id);
 
     // Send welcome email if this is email verification
     if (verifyEmailDto.isVerifyEmail) {
@@ -182,9 +131,9 @@ export class AuthService {
     }
 
     // Generate tokens
-    const tokens = user.generateTokens();
+    const tokens = this.tokenService.generateTokens(user);
 
-    // Update user object
+    // Update user object for response
     user.isEmailVerified = true;
     user.emailVerifiedAt = new Date();
 
@@ -198,22 +147,10 @@ export class AuthService {
    * Initiate forgot password process
    */
   async forgotPassword(forgotPasswordDto: ForgotPasswordDto): Promise<void> {
-    const user = await this.userRepository.findOne({
-      where: { email: forgotPasswordDto.email.toLowerCase() },
-      select: this.selectUserFields as (keyof UserEntity)[],
-    });
+    const user = await this.findUserByEmail(forgotPasswordDto.email);
+    this.userValidationService.validateUserForPasswordReset(user);
 
-    if (!user) {
-      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
-    }
-
-    if (!user.isEmailVerified) {
-      throw new HttpException('Email not verified', HttpStatus.BAD_REQUEST);
-    }
-
-    // Generate new OTP
-    const otp = this.authHelperService.generateOTP();
-    const otpExpireAt = this.authHelperService.generateExpiryTime();
+    const { otp, otpExpireAt } = this.otpService.generateFreshOtp();
 
     // Update user with new OTP
     await this.userRepository.update(user.id, {
@@ -227,29 +164,18 @@ export class AuthService {
   }
 
   /**
-   * Resend OTP
+   * Resend OTP for email verification or password reset
    */
   async resendOTP(resendOTPDto: ForgotPasswordDto): Promise<void> {
-    const user = await this.userRepository.findOne({
-      where: { email: resendOTPDto.email.toLowerCase() },
-      select: [
-        ...this.selectUserFields,
-        'otpExpireAt',
-      ] as (keyof UserEntity)[],
-    });
+    const user = await this.findUserWithOtpExpiry(resendOTPDto.email);
+    this.userValidationService.validateUserExists(user);
 
-    if (!user) {
-      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    // Check if current OTP is still valid (rate limiting)
+    if (this.otpService.isCurrentOtpValid(user.otpExpireAt)) {
+      throw new HttpException(AUTH_CONSTANTS.ERRORS.OTP_STILL_VALID, HttpStatus.TOO_MANY_REQUESTS);
     }
 
-    // Check if current OTP is still valid
-    if (user.otpExpireAt && Date.now() <= user.otpExpireAt) {
-      throw new HttpException('Current OTP is still valid. Please wait before requesting a new one.', HttpStatus.TOO_MANY_REQUESTS);
-    }
-
-    // Generate new OTP
-    const otp = this.authHelperService.generateOTP();
-    const otpExpireAt = this.authHelperService.generateExpiryTime();
+    const { otp, otpExpireAt } = this.otpService.generateFreshOtp();
 
     // Update user with new OTP
     await this.userRepository.update(user.id, {
@@ -266,27 +192,14 @@ export class AuthService {
    * Reset password using OTP
    */
   async resetPassword(resetPasswordDto: ResetPasswordDto): Promise<void> {
-    const user = await this.userRepository.findOne({
-      where: { otp: Number(resetPasswordDto.otp) },
-      select: [
-        ...this.selectUserFields,
-        'otpExpireAt',
-      ] as (keyof UserEntity)[],
-    });
+    const user = await this.findUserByOtp(resetPasswordDto.otp);
+    this.userValidationService.validateUserExists(user);
 
-    if (!user) {
-      throw new HttpException('Invalid OTP', HttpStatus.NOT_FOUND);
-    }
-
-    // Check if OTP is expired
-    if (Date.now() > user.otpExpireAt) {
-      throw new HttpException('OTP has expired', HttpStatus.GONE);
-    }
+    // Validate OTP expiry
+    this.otpService.validateOtpExpiry(user.otpExpireAt);
 
     // Hash new password
-    const hashedPassword = this.authHelperService.hashPassword(
-      resetPasswordDto.password,
-    );
+    const hashedPassword = this.authHelperService.hashPassword(resetPasswordDto.password);
 
     // Update user password and clear OTP
     await this.userRepository.update(user.id, {
@@ -303,12 +216,131 @@ export class AuthService {
   /**
    * Refresh authentication token
    */
-  async refreshToken(refreshToken: string) {
-    return UserEntity.refreshToken(refreshToken);
+  async refreshToken(refreshToken: string): Promise<IToken> {
+    return this.tokenService.refreshToken(refreshToken);
+  }
+
+  // Private helper methods
+
+  /**
+   * Find user by email with password field
+   */
+  private async findUserWithPassword(email: string): Promise<UserEntity> {
+    return this.userRepository.findOne({
+      where: { email: email.toLowerCase() },
+      select: [
+        ...this.selectUserFields,
+        'password',
+        'otpExpireAt',
+      ] as (keyof UserEntity)[],
+    });
   }
 
   /**
-   * Map UserEntity to IAuthUser
+   * Find user by email
+   */
+  private async findUserByEmail(email: string): Promise<UserEntity> {
+    return this.userRepository.findOne({
+      where: { email: email.toLowerCase() },
+      select: this.selectUserFields as (keyof UserEntity)[],
+    });
+  }
+
+  /**
+   * Find user by email and OTP
+   */
+  private async findUserByEmailAndOtp(email: string, otp: string): Promise<UserEntity> {
+    return this.userRepository.findOne({
+      where: {
+        email: email.toLowerCase(),
+        otp: Number(otp),
+      },
+      select: [
+        ...this.selectUserFields,
+        'otpExpireAt',
+      ] as (keyof UserEntity)[],
+    });
+  }
+
+  /**
+   * Find user by OTP
+   */
+  private async findUserByOtp(otp: string): Promise<UserEntity> {
+    return this.userRepository.findOne({
+      where: { otp: Number(otp) },
+      select: [
+        ...this.selectUserFields,
+        'otpExpireAt',
+      ] as (keyof UserEntity)[],
+    });
+  }
+
+  /**
+   * Find user with OTP expiry field
+   */
+  private async findUserWithOtpExpiry(email: string): Promise<UserEntity> {
+    return this.userRepository.findOne({
+      where: { email: email.toLowerCase() },
+      select: [
+        ...this.selectUserFields,
+        'otpExpireAt',
+      ] as (keyof UserEntity)[],
+    });
+  }
+
+  /**
+   * Validate that email doesn't already exist
+   */
+  private async validateEmailNotExists(email: string): Promise<void> {
+    const existingUser = await this.userRepository.findOne({
+      where: { email: email.toLowerCase() },
+    });
+
+    if (existingUser) {
+      throw new HttpException(AUTH_CONSTANTS.ERRORS.USER_ALREADY_EXISTS, HttpStatus.CONFLICT);
+    }
+  }
+
+  /**
+   * Handle unverified email during login (send new OTP)
+   */
+  private async handleUnverifiedEmailLogin(user: UserEntity): Promise<void> {
+    const { otp, otpExpireAt } = this.otpService.generateFreshOtp();
+
+    // Send verification email
+    // TODO: Implement proper email template or use existing SendGrid templates
+    // await this.emailService.sendEmail(user.email, 'template-id', { otp });
+
+    // Update user with new OTP
+    await this.userRepository.update(user.id, {
+      otp,
+      otpExpireAt,
+    });
+  }
+
+  /**
+   * Update user's last API call timestamp
+   */
+  private async updateUserLastApiCall(userId: number): Promise<void> {
+    await this.userRepository.update(userId, {
+      lastApiCallAt: new Date(),
+    });
+  }
+
+  /**
+   * Mark user as email verified
+   */
+  private async markUserAsVerified(userId: number): Promise<void> {
+    await this.userRepository.update(userId, {
+      isEmailVerified: true,
+      emailVerifiedAt: new Date(),
+      otp: null,
+      otpExpireAt: null,
+    });
+  }
+
+  /**
+   * Map UserEntity to IAuthUser interface
    */
   private mapUserToAuthUser(user: UserEntity): IAuthUser {
     return {

@@ -9,10 +9,11 @@ import {
 import { Reflector } from '@nestjs/core';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import * as jwt from 'jsonwebtoken';
 import { UserEntity } from '../../users/entities/user.entity';
 import { isPublicRouteOrController } from '../../globals/helpers/guard.helpers';
 import { UsersStatusEnum } from '../../users/enums/users.status.enum';
+import { TokenService } from '../services/token.service';
+import { AUTH_CONSTANTS } from '../constants/auth.constants';
 
 export const ALLOW_UNAUTHORIZED_REQUEST = 'allow_unauthorized_request';
 
@@ -25,6 +26,7 @@ export class AuthGuard implements CanActivate {
     @InjectRepository(UserEntity)
     private readonly userRepository: Repository<UserEntity>,
     private reflector: Reflector,
+    private readonly tokenService: TokenService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -61,13 +63,8 @@ export class AuthGuard implements CanActivate {
     const token = auth.split(' ')[1];
 
     try {
-      // Use environment variable with fallback
-      const jwtSecret = process.env.JWT_TOKEN_SECRET || process.env.JWT_SECRET;
-      if (!jwtSecret) {
-        throw new HttpException('JWT secret not configured', HttpStatus.INTERNAL_SERVER_ERROR);
-      }
-
-      const decoded: any = jwt.verify(token, jwtSecret);
+      // Verify token using TokenService
+      const decoded: any = this.tokenService.verifyToken(token);
 
       // Verify user still exists and is active
       const user = await this.userRepository.findOne({
@@ -95,7 +92,7 @@ export class AuthGuard implements CanActivate {
 
       // Check if email is verified
       if (!user.isEmailVerified || !user.emailVerifiedAt) {
-        throw new HttpException('Email not verified', HttpStatus.UNAUTHORIZED);
+        throw new HttpException(AUTH_CONSTANTS.ERRORS.EMAIL_NOT_VERIFIED, HttpStatus.UNAUTHORIZED);
       }
 
       // Update last API call
@@ -111,7 +108,7 @@ export class AuthGuard implements CanActivate {
       if (err instanceof HttpException) {
         throw err;
       }
-      const message = 'Token error: ' + (err.message || err.name);
+      const message = AUTH_CONSTANTS.ERRORS.TOKEN_ERROR + ': ' + (err.message || err.name);
       throw new HttpException(message, HttpStatus.UNAUTHORIZED);
     }
   }

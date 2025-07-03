@@ -6,8 +6,12 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AuthGuard } from './guards/auth.guard';
 import { AuthHelperService } from './helpers/auth.helper';
+import { TokenService } from './services/token.service';
+import { OtpService } from './services/otp.service';
+import { UserValidationService } from './services/user-validation.service';
 import { UserEntity } from '../users/entities/user.entity';
 import { GlobalServicesModule } from '../global-service/global.services.module';
+import { AUTH_CONSTANTS } from './constants/auth.constants';
 
 @Module({
   imports: [
@@ -17,7 +21,7 @@ import { GlobalServicesModule } from '../global-service/global.services.module';
       useFactory: async (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_TOKEN_SECRET') || configService.get<string>('JWT_SECRET'),
         signOptions: {
-          expiresIn: configService.get<string>('JWT_EXPIRES_IN') || '24h',
+          expiresIn: configService.get<string>('JWT_EXPIRES_IN') || AUTH_CONSTANTS.DEFAULT_JWT_EXPIRY,
         },
       }),
       inject: [ConfigService],
@@ -25,7 +29,21 @@ import { GlobalServicesModule } from '../global-service/global.services.module';
     GlobalServicesModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, AuthHelperService, AuthGuard],
-  exports: [AuthService, AuthGuard, AuthHelperService],
+  providers: [
+    AuthService,
+    AuthHelperService,
+    AuthGuard,
+    TokenService,
+    OtpService,
+    UserValidationService,
+  ],
+  exports: [
+    AuthService,
+    AuthGuard,
+    AuthHelperService,
+    TokenService,
+    OtpService,
+    UserValidationService,
+  ],
 })
 export class AuthModule {}
