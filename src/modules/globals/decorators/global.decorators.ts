@@ -1,7 +1,6 @@
 import { applyDecorators, Controller, SetMetadata } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { startCase } from 'lodash';
-import { ResourcesEnum } from '../enums/resouces.meta';
 
 export const IS_PUBLIC_KEY = 'isPublic';
 export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
@@ -21,7 +20,6 @@ export const Auth = (
 ) => {
   return applyDecorators(
     options.isPublic ? Public() : ApiBearerAuth(),
-    // ...(options?.authorization ? [UseGuards(AuthorizationGuard())] : []),
     ...additionalGuards,
   );
 };
@@ -45,7 +43,6 @@ export type ApplyDecoratorsReturnType = <
  * @param {string} options.prefix - The base route prefix for the controller (e.g., `/api/v1`).
  * @param {string} [options.tagName] - The name used as a tag in the API documentation. If not provided, it defaults to the first segment of the prefix.
  * @param {boolean} [options.isBearerAuth=true] - A flag indicating if Bearer authentication should be applied. Defaults to `true`.
- * @param {string[]} [options.allowRoles] - An array of roles that are allowed to access the controller. If provided, the `Auth` decorator will be applied with the specified roles.
  *
  * @returns {ApplyDecoratorsReturnType} The combined decorators, including `ApiTags`, `Controller`, and optionally `Auth`.
  *
@@ -58,17 +55,12 @@ export type ApplyDecoratorsReturnType = <
  * @example
  * // Using a custom tag name and disabling authentication
  * ApiController({ prefix: '/users/auth', tagName: 'CustomTag', isBearerAuth: false });
- *
- * @example
- * // Using a custom tag name and disabling authentication
- * ApiController({ prefix: '/users/auth', tagName: 'CustomTag', isBearerAuth: true, allowRoles: ['super_admin'] });
  */
 export function ApiController(
   options: {
     prefix: string;
     tagName?: string;
     isBearerAuth?: boolean;
-    resource?: ResourcesEnum;
   } & Omit<AuthDecoratorParams, 'isPublic'>,
 ): ApplyDecoratorsReturnType {
   const { prefix, tagName, isBearerAuth = true, ...otherOptions } = options;

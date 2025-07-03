@@ -1,6 +1,7 @@
 import { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from '../decorators/global.decorators';
+import { UserRoleEnum } from '../../users/enums/user-enums.enum';
 
 export const isPublicRouteOrController = (
   reflector: Reflector,
@@ -13,68 +14,58 @@ export const isPublicRouteOrController = (
   return isPublic.some((x: any) => x === true);
 };
 
-// Simplified permission helper - can be expanded later
+/**
+ * Check if user has admin role
+ */
 export function isAdminUser(user: any): boolean {
-  // You can implement simple admin check logic here
-  // For example, check email domain or a simple isAdmin flag
-  return user?.email?.includes('admin') || user?.isAdmin === true;
-}
-
-// For future role expansion
-export function hasPermission(user: any, permission: string): boolean {
-  // Placeholder for future permission system
-  return true; // Allow all for now
+  return user?.role === UserRoleEnum.Admin;
 }
 
 /**
- * Checks whether a given role has permission to access a specific resource
- * based on the incoming HTTP method.
- *
- * Maps HTTP methods to action types:
- * - GET → read
- * - POST → create
- * - PUT/PATCH → update
- * - DELETE → delete
- *
- * @param {Role} role - The role object containing an array of permissions.
- * @param {string} resource - The name of the resource being accessed (e.g., 'User Management').
- * @param {string} method - The HTTP method of the request (e.g., 'GET', 'POST', 'PUT', 'DELETE').
- * @returns {boolean} - Returns true if the role has permission for the action, false otherwise.
- *
- * @example
- * canAccess(user.role, 'Course Management', 'POST'); // true if 'create' is allowed
+ * Check if user has specific role
  */
-export function canAccess(
-  role: any,
-  resource: string,
-  method: string,
-): boolean {
-  if (!role || !role.permissions?.length || !method) return false;
-  const permission = role.permissions.find(
-    (perm: any) =>
-      perm.resource.toLowerCase() === resource.toLowerCase(),
-  );
+export function hasRole(user: any, role: UserRoleEnum): boolean {
+  return user?.role === role;
+}
 
-  if (!permission) return false;
-
-  // Normalize HTTP method
-  const httpMethod = method.toUpperCase();
-
-  switch (httpMethod) {
-    case 'GET':
-      return permission.read;
-
-    case 'POST':
-      return permission.create;
-
-    case 'PUT':
-    case 'PATCH':
-      return permission.update; // or permission.update if you separate update/write
-
-    case 'DELETE':
-      return permission.delete; // change to permission.delete if using explicit delete permission
-
-    default:
-      return false;
+/**
+ * Simple permission check based on user role
+ * Admins have all permissions, regular users have limited permissions
+ */
+export function hasPermission(user: any, action: 'read' | 'create' | 'update' | 'delete'): boolean {
+  if (!user) return false;
+  
+  // Admins can do everything
+  if (user.role === UserRoleEnum.Admin) {
+    return true;
   }
+  
+  // Regular users can only read their own data
+  if (user.role === UserRoleEnum.User && action === 'read') {
+    return true;
+  }
+  
+  return false;
+}
+
+/**
+ * Check if user can access resource based on HTTP method
+ * This is a simplified version for basic role-based access
+ */
+export function canAccessResource(user: any, method: string): boolean {
+  if (!user || !method) return false;
+
+  const httpMethod = method.toUpperCase();
+  
+  // Admins can access everything
+  if (user.role === UserRoleEnum.Admin) {
+    return true;
+  }
+  
+  // Regular users can only perform GET requests
+  if (user.role === UserRoleEnum.User && httpMethod === 'GET') {
+    return true;
+  }
+  
+  return false;
 }

@@ -101,28 +101,10 @@ export class EnvConfigDto {
   @IsEmail()
   SENDER_EMAIL?: string;
 
-  // Firebase (Optional - Legacy)
-  @IsString()
-  @IsOptional()
-  FIREBASE_API_KEY?: string;
-
-  // Aspose Service (Optional)
-  @IsString()
-  @IsOptional()
-  ASPOSE_BASE_URL?: string;
-
-  @IsString()
-  @IsOptional()
-  ASPOSE_CLIENT_ID?: string;
-
-  @IsString()
-  @IsOptional()
-  ASPOSE_CLIENT_SECRET?: string;
-
   // Frontend URL (Optional)
   @IsString()
   @IsOptional()
-  KEAN_FRONTEND_URL?: string;
+  FRONTEND_URL?: string;
 
   // Redis Configuration (Optional)
   @IsString()

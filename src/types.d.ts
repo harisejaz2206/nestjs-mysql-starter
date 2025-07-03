@@ -22,13 +22,6 @@ declare module '@nestjs/config' {
       options: ConfigGetOptions,
     ): Exclude<R, undefined>;
   }
-
-  interface AccessPoint {
-    read: boolean;
-    update: boolean;
-    create: boolean;
-    delete: boolean;
-  }
 }
 
 declare module 'express' {

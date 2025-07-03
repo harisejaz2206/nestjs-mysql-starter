@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: 'Kean-OLT-BE',
+      name: 'nestjs-template',
       script: 'dist/src/main.js',
       instances: 1,
       autorestart: true,
