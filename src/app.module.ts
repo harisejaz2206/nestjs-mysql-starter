@@ -12,7 +12,6 @@ import { validateEnv } from './modules/globals/validators/env.config.validator';
 import { RequestContextModule } from 'nestjs-request-context';
 import { GlobalServicesModule } from './modules/global-service/global.services.module';
 import { AppLoggerMiddleware } from './modules/globals/middlewares/app.logger.middleware';
-import { BullModule } from '@nestjs/bull';
 import { AwsModule } from './modules/aws/aws.module';
 import awsConfig from './modules/globals/config/aws.config';
 import { UploadsModule } from './modules/uploads/uploads.module';
@@ -38,20 +37,6 @@ import { UploadsModule } from './modules/uploads/uploads.module';
           name: 'default',
           patch: false,
         });
-      },
-    }),
-
-    BullModule.forRoot({
-      prefix: 'bull:' + process.env.APP_ENV,
-      redis: {
-        host: process.env.REDIS_HOST,
-        port: parseInt(process.env.REDIS_PORT),
-        keepAlive: 1,
-        ...(process.env.APP_ENV === 'production' && {
-          username: process.env.REDIS_USERNAME,
-          password: process.env.REDIS_PASSWORD,
-          tls: {},
-        }),
       },
     }),
     RequestContextModule,

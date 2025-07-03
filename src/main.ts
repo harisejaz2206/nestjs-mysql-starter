@@ -7,7 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { EnvKeysEnum } from './modules/globals/enums/env.enum';
 import { CustomLogger } from './modules/globals/CustomLogger';
 import { LoggerService } from './modules/global-service/services/logger.service';
-import OpenApiConfig from './modules/globals/config/openapi.config';
+import { createOpenApiConfig } from './modules/globals/config/openapi.config';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import { HttpExceptionFilter } from './modules/globals/filters/exception.filter';
@@ -54,11 +54,11 @@ async function bootstrap() {
   
   useContainer(app.select(AppModule), { fallbackOnErrors: true });
   app.useGlobalFilters(new HttpExceptionFilter());
-  const document = SwaggerModule.createDocument(app, OpenApiConfig);
+  const document = SwaggerModule.createDocument(app, createOpenApiConfig());
   const port = configService.get<number>(EnvKeysEnum.AppPort) || 3000;
   SwaggerModule.setup('api-docs', app, document, {
     useGlobalPrefix: true,
-    customSiteTitle: "NestJS Boilerplate API Documentation",
+    customSiteTitle: process.env.API_TITLE || "NestJS Template API Documentation",
     jsonDocumentUrl: 'api-docs-json',
     swaggerOptions: {
       persistAuthorization: true,

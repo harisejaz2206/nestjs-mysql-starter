@@ -87,8 +87,8 @@ export class TokenService {
    * Get JWT secrets from configuration
    */
   private getJwtSecrets(): { jwtSecret: string; jwtRefreshSecret: string } {
-    const jwtSecret = this.configService.get<string>('JWT_TOKEN_SECRET') || this.configService.get<string>('JWT_SECRET');
-    const jwtRefreshSecret = this.configService.get<string>('JWT_REFRESH_TOKEN_SECRET') || this.configService.get<string>('JWT_REFRESH_SECRET');
+    const jwtSecret = this.configService.get<string>('JWT_SECRET');
+    const jwtRefreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET');
 
     if (!jwtSecret || !jwtRefreshSecret) {
       throw new HttpException(AUTH_CONSTANTS.ERRORS.JWT_SECRET_MISSING, HttpStatus.INTERNAL_SERVER_ERROR);

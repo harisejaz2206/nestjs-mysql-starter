@@ -115,11 +115,11 @@ export class User {
       role: this.role,
     };
 
-    const token = jwt.sign(payload, process.env.JWT_TOKEN_SECRET, {
+    const token = jwt.sign(payload, process.env.JWT_SECRET, {
       expiresIn: process.env.JWT_EXPIRES_IN,
     });
 
-    const refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_TOKEN_SECRET, {
+    const refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET, {
       expiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
     });
 
@@ -135,7 +135,7 @@ export class User {
    */
   static async refreshToken(refreshToken: string): Promise<IToken> {
     try {
-      const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_TOKEN_SECRET) as any;
+      const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET) as any;
 
       const newPayload = {
         id: decoded.id,
@@ -143,11 +143,11 @@ export class User {
         role: decoded.role,
       };
 
-      const token = jwt.sign(newPayload, process.env.JWT_TOKEN_SECRET, {
+      const token = jwt.sign(newPayload, process.env.JWT_SECRET, {
         expiresIn: process.env.JWT_EXPIRES_IN,
       });
 
-      const newRefreshToken = jwt.sign(newPayload, process.env.JWT_REFRESH_TOKEN_SECRET, {
+      const newRefreshToken = jwt.sign(newPayload, process.env.JWT_REFRESH_SECRET, {
         expiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
       });
 
@@ -211,7 +211,7 @@ import { AuthHelperService } from '../../helper/auth.helper';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_TOKEN_SECRET'),
+        secret: configService.get<string>('JWT_SECRET'),
         signOptions: {
           expiresIn: configService.get<string>('JWT_EXPIRES_IN'),
         },
@@ -616,7 +616,7 @@ export class AuthGuard implements CanActivate {
     const token = auth.split(' ')[1];
 
     try {
-      const decoded: any = jwt.verify(token, process.env.JWT_TOKEN_SECRET);
+      const decoded: any = jwt.verify(token, process.env.JWT_SECRET);
 
       // Optionally verify user still exists and is active
       const user = await this.userRepository.findOne({
@@ -924,8 +924,8 @@ DB_PASSWORD=your_password
 DB_DATABASE=your_database
 
 # JWT
-JWT_TOKEN_SECRET=your_jwt_secret
-JWT_REFRESH_TOKEN_SECRET=your_refresh_secret
+JWT_SECRET=your_jwt_secret
+JWT_REFRESH_SECRET=your_refresh_secret
 JWT_EXPIRES_IN=24h
 JWT_REFRESH_EXPIRES_IN=7d
 

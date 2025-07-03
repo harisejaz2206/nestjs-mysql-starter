@@ -1,5 +1,3 @@
-
-
 import { DataSource } from 'typeorm';
 export const connectionSource = new DataSource({
   type: 'DB Type (`mysql` or `mariadb` (for localhost))',

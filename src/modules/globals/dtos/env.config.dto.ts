@@ -61,16 +61,6 @@ export class EnvConfigDto {
   @IsDefined()
   JWT_REFRESH_SECRET: string;
 
-  // JWT Token Secret (alias for JWT_SECRET for compatibility)
-  @IsString()
-  @IsOptional()
-  JWT_TOKEN_SECRET?: string;
-
-  // JWT Refresh Token Secret (alias for JWT_REFRESH_SECRET for compatibility)
-  @IsString()
-  @IsOptional()
-  JWT_REFRESH_TOKEN_SECRET?: string;
-
   @IsString()
   @IsOptional()
   JWT_EXPIRES_IN?: string;
@@ -106,21 +96,36 @@ export class EnvConfigDto {
   @IsOptional()
   FRONTEND_URL?: string;
 
-  // Redis Configuration (Optional)
+  // API Documentation Configuration (Optional)
   @IsString()
   @IsOptional()
-  REDIS_HOST?: string;
-
-  @IsNumber()
-  @Transform(({ value }) => parseInt(value, 10), { toClassOnly: true })
-  @IsOptional()
-  REDIS_PORT?: number;
+  API_TITLE?: string;
 
   @IsString()
   @IsOptional()
-  REDIS_USERNAME?: string;
+  API_DESCRIPTION?: string;
 
   @IsString()
   @IsOptional()
-  REDIS_PASSWORD?: string;
+  API_VERSION?: string;
+
+  @IsString()
+  @IsOptional()
+  API_CONTACT_NAME?: string;
+
+  @IsString()
+  @IsOptional()
+  API_CONTACT_EMAIL?: string;
+
+  @IsString()
+  @IsOptional()
+  API_CONTACT_URL?: string;
+
+  @IsString()
+  @IsOptional()
+  STAGING_URL?: string;
+
+  @IsString()
+  @IsOptional()
+  PRODUCTION_URL?: string;
 }
