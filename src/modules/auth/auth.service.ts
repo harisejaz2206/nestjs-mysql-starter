@@ -192,7 +192,18 @@ export class AuthService {
    * Reset password using OTP
    */
   async resetPassword(resetPasswordDto: ResetPasswordDto): Promise<void> {
-    const user = await this.findUserByOtp(resetPasswordDto.otp);
+    // Get user by OTP first to find the email
+    const userByOtp = await this.userRepository.findOne({
+      where: { otp: Number(resetPasswordDto.otp) },
+      select: ['id', 'email', 'otpExpireAt'],
+    });
+
+    if (!userByOtp) {
+      throw new HttpException(AUTH_CONSTANTS.ERRORS.INVALID_OTP, HttpStatus.BAD_REQUEST);
+    }
+
+    // Now get the full user data with email validation
+    const user = await this.findUserByEmailAndOtp(userByOtp.email, resetPasswordDto.otp);
     this.userValidationService.validateUserExists(user);
 
     // Validate OTP expiry
@@ -263,7 +274,8 @@ export class AuthService {
   }
 
   /**
-   * Find user by OTP
+   * Find user by OTP (DEPRECATED - use findUserByEmailAndOtp instead)
+   * @deprecated This method is kept for backward compatibility but should not be used for security operations
    */
   private async findUserByOtp(otp: string): Promise<UserEntity> {
     return this.userRepository.findOne({

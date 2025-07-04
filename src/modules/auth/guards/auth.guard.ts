@@ -95,10 +95,15 @@ export class AuthGuard implements CanActivate {
         throw new HttpException(AUTH_CONSTANTS.ERRORS.EMAIL_NOT_VERIFIED, HttpStatus.UNAUTHORIZED);
       }
 
-      // Update last API call
-      await this.userRepository.update(user.id, {
-        lastApiCallAt: new Date(),
-      });
+      // Update last API call only if more than 5 minutes have passed
+      const shouldUpdateApiCall = !user.lastApiCallAt || 
+        (Date.now() - user.lastApiCallAt.getTime()) > AUTH_CONSTANTS.LAST_API_CALL_UPDATE_THRESHOLD;
+
+      if (shouldUpdateApiCall) {
+        await this.userRepository.update(user.id, {
+          lastApiCallAt: new Date(),
+        });
+      }
 
       return {
         ...decoded,

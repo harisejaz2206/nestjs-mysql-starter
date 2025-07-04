@@ -1,5 +1,6 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { randomInt } from 'crypto';
 import { AUTH_CONSTANTS } from '../constants/auth.constants';
 
 @Injectable()
@@ -7,10 +8,10 @@ export class OtpService {
   constructor(private readonly configService: ConfigService) {}
 
   /**
-   * Generate a 4-digit OTP
+   * Generate a cryptographically secure 4-digit OTP
    */
   generateOTP(): number {
-    return Math.floor(AUTH_CONSTANTS.OTP_MIN + Math.random() * (AUTH_CONSTANTS.OTP_MAX - AUTH_CONSTANTS.OTP_MIN));
+    return randomInt(AUTH_CONSTANTS.OTP_MIN, AUTH_CONSTANTS.OTP_MAX + 1);
   }
 
   /**

@@ -11,7 +11,13 @@ export class AuthHelperService {
    * Hash password using bcrypt
    */
   hashPassword(password: string): string {
-    const saltRounds = Number(this.configService.get<string>('BCRYPT_SALT')) || AUTH_CONSTANTS.DEFAULT_BCRYPT_ROUNDS;
+    const saltRounds = Number(this.configService.get<string>('BCRYPT_SALT_ROUNDS')) || AUTH_CONSTANTS.DEFAULT_BCRYPT_ROUNDS;
+    
+    // Validate salt rounds
+    if (saltRounds < 10 || saltRounds > 15) {
+      throw new Error('BCRYPT_SALT_ROUNDS must be between 10 and 15 for optimal security');
+    }
+    
     const salt = bcrypt.genSaltSync(saltRounds);
     return bcrypt.hashSync(password, salt);
   }

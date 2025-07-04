@@ -12,6 +12,18 @@ export const AUTH_CONSTANTS = {
 
   // Security
   DEFAULT_BCRYPT_ROUNDS: 10,
+  MIN_JWT_SECRET_LENGTH: 32,
+  LAST_API_CALL_UPDATE_THRESHOLD: 300000, // 5 minutes in milliseconds
+
+  // Rate Limiting
+  RATE_LIMIT: {
+    LOGIN: { limit: 5, ttl: 60000 },          // 5 attempts per minute
+    REGISTER: { limit: 3, ttl: 60000 },       // 3 registrations per minute
+    VERIFY_EMAIL: { limit: 10, ttl: 60000 },  // 10 verification attempts per minute
+    FORGOT_PASSWORD: { limit: 3, ttl: 60000 }, // 3 forgot password requests per minute
+    RESET_PASSWORD: { limit: 5, ttl: 60000 },  // 5 reset attempts per minute
+    RESEND_OTP: { limit: 3, ttl: 60000 },     // 3 resend attempts per minute
+  },
 
   // Error Messages
   ERRORS: {
@@ -25,6 +37,7 @@ export const AUTH_CONSTANTS = {
     OTP_STILL_VALID: 'Current OTP is still valid. Please wait before requesting a new one.',
     JWT_SECRET_MISSING: 'JWT secrets not configured',
     TOKEN_ERROR: 'Token error',
+    RATE_LIMIT_EXCEEDED: 'Too many requests. Please try again later.',
   },
 
   // Success Messages

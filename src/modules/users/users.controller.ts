@@ -19,6 +19,7 @@ import { EnvKeysEnum } from '../globals/enums/env.enum';
 import { ApiQuery } from '@nestjs/swagger';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UsersListDto } from './dto/users-list.dto';
+import { UserEntity } from './entities/user.entity';
 
 @ApiController({
   prefix: '/users',
@@ -35,7 +36,7 @@ export class UsersController {
    * Get current user profile
    */
   @Get('profile')
-  async getProfile() {
+  async getProfile(): Promise<GlobalResponseDto<UserEntity>> {
     const user = await this.usersService.getCurrentUser();
     return new GlobalResponseDto(HttpStatus.OK, 'Get User Profile', user);
   }
@@ -53,7 +54,7 @@ export class UsersController {
   async createSuperAdmin(
     @Query('secretCode') secretCode: string,
     @Body() createUserDto: CreateSuperAdminUserDto,
-  ) {
+  ): Promise<GlobalResponseDto<UserEntity>> {
     const sec = this.configService.get<string>(EnvKeysEnum.MySecretForSuper);
     if (secretCode !== sec) {
       throw new UnauthorizedException('Secret does not match');
@@ -70,7 +71,7 @@ export class UsersController {
    * Get all users with pagination and filtering
    */
   @Get()
-  async findAll(@Query() query: UsersListDto) {
+  async findAll(@Query() query: UsersListDto): Promise<GlobalResponseDto<any>> {
     const result = await this.usersService.findAll(query);
     return new GlobalResponseDto(HttpStatus.OK, 'Get All Users', result);
   }
@@ -79,7 +80,7 @@ export class UsersController {
    * Get user by ID
    */
   @Get(':id')
-  async findOne(@Param('id', ParseIntPipe) id: number) {
+  async findOne(@Param('id', ParseIntPipe) id: number): Promise<GlobalResponseDto<UserEntity>> {
     const user = await this.usersService.findOne(id);
     return new GlobalResponseDto(HttpStatus.OK, 'Get User', user);
   }
@@ -91,7 +92,7 @@ export class UsersController {
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateUserDto: UpdateUserDto,
-  ) {
+  ): Promise<GlobalResponseDto<UserEntity>> {
     const user = await this.usersService.update(id, updateUserDto);
     return new GlobalResponseDto(HttpStatus.OK, 'User Updated', user);
   }
@@ -100,7 +101,7 @@ export class UsersController {
    * Delete user by ID (soft delete)
    */
   @Delete(':id')
-  async remove(@Param('id', ParseIntPipe) id: number) {
+  async remove(@Param('id', ParseIntPipe) id: number): Promise<GlobalResponseDto<null>> {
     await this.usersService.remove(id);
     return new GlobalResponseDto(HttpStatus.OK, 'User Deleted', null);
   }

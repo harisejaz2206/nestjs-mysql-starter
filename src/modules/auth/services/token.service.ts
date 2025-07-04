@@ -7,7 +7,26 @@ import { AUTH_CONSTANTS } from '../constants/auth.constants';
 
 @Injectable()
 export class TokenService {
-  constructor(private readonly configService: ConfigService) {}
+  constructor(private readonly configService: ConfigService) {
+    // Validate JWT secrets on startup
+    this.validateJwtSecrets();
+  }
+
+  /**
+   * Validate JWT secrets are configured on startup
+   */
+  private validateJwtSecrets(): void {
+    const jwtSecret = this.configService.get<string>('JWT_SECRET');
+    const jwtRefreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET');
+
+    if (!jwtSecret || !jwtRefreshSecret) {
+      throw new Error('JWT_SECRET and JWT_REFRESH_SECRET must be configured in environment variables');
+    }
+
+    if (jwtSecret.length < AUTH_CONSTANTS.MIN_JWT_SECRET_LENGTH || jwtRefreshSecret.length < AUTH_CONSTANTS.MIN_JWT_SECRET_LENGTH) {
+      throw new Error(`JWT secrets must be at least ${AUTH_CONSTANTS.MIN_JWT_SECRET_LENGTH} characters long for security`);
+    }
+  }
 
   /**
    * Generate JWT access and refresh tokens for a user

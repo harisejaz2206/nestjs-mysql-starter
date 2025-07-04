@@ -4,6 +4,7 @@ import {
   HttpStatus,
   Post,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { ApiBody, ApiOperation } from '@nestjs/swagger';
 import { LoginDto } from './dto/login.dto';
@@ -28,6 +29,7 @@ export class AuthController {
 
   @Public()
   @Post('/login')
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 attempts per minute
   @ApiBody({ type: LoginDto })
   @ApiOperation({
     summary: 'User Login',
@@ -45,6 +47,7 @@ export class AuthController {
 
   @Public()
   @Post('/register')
+  @Throttle({ default: { limit: 3, ttl: 60000 } }) // 3 registrations per minute
   @ApiBody({ type: RegisterDto })
   @ApiOperation({
     summary: 'User Registration',
@@ -62,6 +65,7 @@ export class AuthController {
 
   @Public()
   @Post('/verify-email')
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 verification attempts per minute
   @ApiBody({ type: VerifyEmailDto })
   @ApiOperation({
     summary: 'Verify Email',
@@ -79,6 +83,7 @@ export class AuthController {
 
   @Public()
   @Post('/forgot-password')
+  @Throttle({ default: { limit: 3, ttl: 60000 } }) // 3 forgot password requests per minute
   @ApiBody({ type: ForgotPasswordDto })
   @ApiOperation({
     summary: 'Forgot Password',
@@ -96,6 +101,7 @@ export class AuthController {
 
   @Public()
   @Post('/reset-password')
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 reset attempts per minute
   @ApiBody({ type: ResetPasswordDto })
   @ApiOperation({
     summary: 'Reset Password',
@@ -113,6 +119,7 @@ export class AuthController {
 
   @Public()
   @Post('/resend-otp')
+  @Throttle({ default: { limit: 3, ttl: 60000 } }) // 3 resend attempts per minute
   @ApiBody({ type: ForgotPasswordDto })
   @ApiOperation({
     summary: 'Resend OTP',
