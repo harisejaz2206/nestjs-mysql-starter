@@ -29,7 +29,7 @@ export class AuthController {
 
   @Public()
   @Post('/login')
-  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 attempts per minute
+  @Throttle({ default: AUTH_CONSTANTS.RATE_LIMIT.LOGIN })
   @ApiBody({ type: LoginDto })
   @ApiOperation({
     summary: 'User Login',
@@ -47,7 +47,7 @@ export class AuthController {
 
   @Public()
   @Post('/register')
-  @Throttle({ default: { limit: 3, ttl: 60000 } }) // 3 registrations per minute
+  @Throttle({ default: AUTH_CONSTANTS.RATE_LIMIT.REGISTER })
   @ApiBody({ type: RegisterDto })
   @ApiOperation({
     summary: 'User Registration',
@@ -65,7 +65,7 @@ export class AuthController {
 
   @Public()
   @Post('/verify-email')
-  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 verification attempts per minute
+  @Throttle({ default: AUTH_CONSTANTS.RATE_LIMIT.VERIFY_EMAIL })
   @ApiBody({ type: VerifyEmailDto })
   @ApiOperation({
     summary: 'Verify Email',
@@ -83,7 +83,7 @@ export class AuthController {
 
   @Public()
   @Post('/forgot-password')
-  @Throttle({ default: { limit: 3, ttl: 60000 } }) // 3 forgot password requests per minute
+  @Throttle({ default: AUTH_CONSTANTS.RATE_LIMIT.FORGOT_PASSWORD })
   @ApiBody({ type: ForgotPasswordDto })
   @ApiOperation({
     summary: 'Forgot Password',
@@ -101,7 +101,7 @@ export class AuthController {
 
   @Public()
   @Post('/reset-password')
-  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 reset attempts per minute
+  @Throttle({ default: AUTH_CONSTANTS.RATE_LIMIT.RESET_PASSWORD })
   @ApiBody({ type: ResetPasswordDto })
   @ApiOperation({
     summary: 'Reset Password',
@@ -119,7 +119,7 @@ export class AuthController {
 
   @Public()
   @Post('/resend-otp')
-  @Throttle({ default: { limit: 3, ttl: 60000 } }) // 3 resend attempts per minute
+  @Throttle({ default: AUTH_CONSTANTS.RATE_LIMIT.RESEND_OTP })
   @ApiBody({ type: ForgotPasswordDto })
   @ApiOperation({
     summary: 'Resend OTP',
@@ -137,6 +137,7 @@ export class AuthController {
 
   @Public()
   @Post('/refresh-token')
+  @Throttle({ default: AUTH_CONSTANTS.RATE_LIMIT.REFRESH_TOKEN })
   @ApiBody({ type: RefreshTokenDto })
   @ApiOperation({
     summary: 'Refresh Token',

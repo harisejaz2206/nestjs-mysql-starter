@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { ThrottlerModule } from '@nestjs/throttler';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AuthGuard } from './guards/auth.guard';
@@ -29,18 +28,6 @@ import { AUTH_CONSTANTS } from './constants/auth.constants';
       }),
       inject: [ConfigService],
     }),
-    ThrottlerModule.forRoot([
-      {
-        name: 'short',
-        ttl: 60000, // 1 minute
-        limit: 20,  // 20 requests per minute (general limit)
-      },
-      {
-        name: 'medium',
-        ttl: 600000, // 10 minutes
-        limit: 100,  // 100 requests per 10 minutes
-      },
-    ]),
     GlobalServicesModule,
   ],
   controllers: [AuthController],

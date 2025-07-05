@@ -48,7 +48,7 @@ async function bootstrap() {
 
   app.useGlobalInterceptors(new ValidateTransformInterceptor());
   
-  // Use dependency injection to get the AuthGuard with all its dependencies
+  // Use dependency injection to get guards with all their dependencies
   const authGuard = app.get(AuthGuard);
   app.useGlobalGuards(authGuard);
   

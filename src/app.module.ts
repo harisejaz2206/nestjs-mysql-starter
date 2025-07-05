@@ -1,4 +1,5 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule } from '@nestjs/config';
@@ -6,6 +7,7 @@ import { connectionSource } from '../ormconfig';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { addTransactionalDataSource } from 'typeorm-transactional';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { validateEnv } from './modules/globals/validators/env.config.validator';
@@ -39,6 +41,12 @@ import { UploadsModule } from './modules/uploads/uploads.module';
         });
       },
     }),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000, // 1 minute
+        limit: 100, // 100 requests per minute (global default)
+      },
+    ]),
     RequestContextModule,
     GlobalServicesModule, // module for global services to use in other modules i.e. axios, logger services
     UsersModule, // user module for user related operations
@@ -47,7 +55,13 @@ import { UploadsModule } from './modules/uploads/uploads.module';
     UploadsModule, // aws module for aws services
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
