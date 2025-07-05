@@ -48,7 +48,16 @@ export class UserQueryService {
   }
 
   /**
-   * Find user by email and OTP (secure method)
+   * Find user by email and OTP combination (secure method)
+   * 
+   * @description Securely finds user using both email and OTP to prevent enumeration attacks
+   * 
+   * @param email - User email address (converted to lowercase)
+   * @param otp - 4-digit OTP string (converted to number)
+   * @returns Promise<UserEntity> - User entity with OTP expiry field
+   * 
+   * @security Prevents OTP enumeration by requiring both email and OTP
+   * @note Returns null if no user found with this email/OTP combination
    */
   async findUserByEmailAndOtp(email: string, otp: string): Promise<UserEntity> {
     return this.userRepository.findOne({
@@ -97,7 +106,20 @@ export class UserQueryService {
   }
 
   /**
-   * Mark user as email verified
+   * Mark user as email verified and clear OTP
+   * 
+   * @description Updates user verification status and cleans up OTP data
+   * 
+   * **Database Updates:**
+   * - Sets isEmailVerified = true
+   * - Sets emailVerifiedAt = current timestamp
+   * - Clears otp = null
+   * - Clears otpExpireAt = null
+   * 
+   * @param userId - User ID to update
+   * @returns Promise<void> - No return value
+   * 
+   * @note This is a one-time operation per user registration
    */
   async markUserAsVerified(userId: number): Promise<void> {
     await this.userRepository.update(userId, {
