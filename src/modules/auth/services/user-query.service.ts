@@ -27,14 +27,19 @@ export class UserQueryService {
    * Find user by email with password field
    */
   async findUserWithPassword(email: string): Promise<UserEntity> {
-    return this.userRepository.findOne({
-      where: { email: email.toLowerCase() },
-      select: [
-        ...this.selectUserFields,
-        'password',
-        'otpExpireAt',
-      ] as (keyof UserEntity)[],
-    });
+    try {
+      return await this.userRepository.findOne({
+        where: { email: email.toLowerCase() },
+        select: [
+          ...this.selectUserFields,
+          'password',
+          'otpExpireAt',
+        ] as (keyof UserEntity)[],
+      });
+    } catch (error) {
+      console.error('Database error in findUserWithPassword:', error);
+      throw error; // Re-throw to be handled by calling service
+    }
   }
 
   /**
@@ -155,7 +160,12 @@ export class UserQueryService {
    * Create new user
    */
   async createUser(userData: Partial<UserEntity>): Promise<UserEntity> {
-    const user = this.userRepository.create(userData);
-    return this.userRepository.save(user);
+    try {
+      const user = this.userRepository.create(userData);
+      return await this.userRepository.save(user);
+    } catch (error) {
+      console.error('Database error in createUser:', error);
+      throw error; // Re-throw to be handled by calling service
+    }
   }
 } 

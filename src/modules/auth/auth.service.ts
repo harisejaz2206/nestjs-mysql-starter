@@ -101,6 +101,7 @@ export class AuthService {
    * @returns Promise<void> - No return value on success
    * 
    * @throws HttpException(CONFLICT) - Email already exists
+   * @throws HttpException(INTERNAL_SERVER_ERROR) - Database or service errors
    * @throws Error - Password hashing validation errors
    * 
    * @note User must verify email before they can login
@@ -114,19 +115,27 @@ export class AuthService {
     const hashedPassword = this.passwordHelperService.hashPassword(registerDto.password);
     const { otp, otpExpireAt } = this.otpService.generateFreshOtp();
 
-    await this.userQueryService.createUser({
-      firstName: registerDto.firstName,
-      lastName: registerDto.lastName,
-      email: registerDto.email.toLowerCase(),
-      password: hashedPassword,
-      otp,
-      otpExpireAt,
-      isEmailVerified: false,
-    });
+    try {
+      const user = await this.userQueryService.createUser({
+        firstName: registerDto.firstName,
+        lastName: registerDto.lastName,
+        email: registerDto.email.toLowerCase(),
+        password: hashedPassword,
+        otp,
+        otpExpireAt,
+        isEmailVerified: false,
+      });
 
-    // Send registration email
-    // TODO: Implement proper email template or use existing SendGrid templates
-    // await this.emailService.sendEmail(registerDto.email, 'template-id', { firstName: registerDto.firstName, otp });
+      // Send registration email
+      // TODO: Implement proper email template or use existing SendGrid templates
+      // await this.emailService.sendEmail(registerDto.email, 'template-id', { firstName: registerDto.firstName, otp });
+    } catch (error) {
+      console.error('Registration failed:', error);
+      throw new HttpException(
+        'Registration failed. Please try again.',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
   }
 
   /**
@@ -338,13 +347,16 @@ export class AuthService {
    * @note This provides better UX by automatically sending verification email
    */
   private async handleUnverifiedEmailLogin(user: any): Promise<void> {
-    const { otp, otpExpireAt } = this.otpService.generateFreshOtp();
-
-    // Send verification email
-    // TODO: Implement proper email template or use existing SendGrid templates
-    // await this.emailService.sendEmail(user.email, 'template-id', { otp });
-
-    // Update user with new OTP
-    await this.userQueryService.updateUserOtp(user.id, otp, otpExpireAt);
+    try {
+      const { otp, otpExpireAt } = this.otpService.generateFreshOtp();
+      await this.userQueryService.updateUserOtp(user.id, otp, otpExpireAt);
+      
+      // Send verification email
+      // TODO: Implement proper email template or use existing SendGrid templates
+      // await this.emailService.sendEmail(user.email, 'template-id', { otp });
+    } catch (error) {
+      console.error('Failed to handle unverified email login:', error);
+      // Don't throw - let main login flow handle the unverified email error
+    }
   }
 }
