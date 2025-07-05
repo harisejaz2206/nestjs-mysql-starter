@@ -6,7 +6,9 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AuthGuard } from './guards/auth.guard';
-import { AuthHelperService } from './helpers/auth.helper';
+import { PasswordHelperService } from './helpers/password.helper';
+import { AuthHelperService } from './services/auth-helper.service';
+import { UserQueryService } from './services/user-query.service';
 import { TokenService } from './services/token.service';
 import { OtpService } from './services/otp.service';
 import { UserValidationService } from './services/user-validation.service';
@@ -44,7 +46,9 @@ import { AUTH_CONSTANTS } from './constants/auth.constants';
   controllers: [AuthController],
   providers: [
     AuthService,
+    PasswordHelperService,
     AuthHelperService,
+    UserQueryService,
     AuthGuard,
     TokenService,
     OtpService,
@@ -53,7 +57,9 @@ import { AUTH_CONSTANTS } from './constants/auth.constants';
   exports: [
     AuthService,
     AuthGuard,
+    PasswordHelperService,
     AuthHelperService,
+    UserQueryService,
     TokenService,
     OtpService,
     UserValidationService,

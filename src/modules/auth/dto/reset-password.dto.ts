@@ -6,9 +6,19 @@ import {
   MinLength,
   Length,
   IsNumberString,
+  IsEmail,
 } from 'class-validator';
 
 export class ResetPasswordDto {
+  @IsNotEmpty()
+  @IsEmail({}, { message: 'Invalid email address.' })
+  @ApiProperty({ 
+    type: String, 
+    description: 'User email address',
+    example: 'john.doe@example.com'
+  })
+  email: string;
+
   @IsNotEmpty()
   @IsNumberString({}, { message: 'OTP must be a 4-digit number' })
   @Length(4, 4, { message: 'OTP must be exactly 4 digits' })

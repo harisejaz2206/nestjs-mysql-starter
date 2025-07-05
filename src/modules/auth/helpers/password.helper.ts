@@ -4,7 +4,7 @@ import * as bcrypt from 'bcrypt';
 import { AUTH_CONSTANTS } from '../constants/auth.constants';
 
 @Injectable()
-export class AuthHelperService {
+export class PasswordHelperService {
   constructor(private readonly configService: ConfigService) {}
 
   /**

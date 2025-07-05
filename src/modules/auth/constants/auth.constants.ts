@@ -27,16 +27,17 @@ export const AUTH_CONSTANTS = {
 
   // Error Messages
   ERRORS: {
-    INVALID_CREDENTIALS: 'Invalid credentials',
-    EMAIL_NOT_VERIFIED: 'Email not verified',
-    ACCOUNT_INACTIVE: 'Account is inactive',
-    USER_NOT_FOUND: 'User not found',
-    USER_ALREADY_EXISTS: 'User already exists',
-    INVALID_OTP: 'Invalid OTP or email',
-    OTP_EXPIRED: 'OTP has expired',
+    INVALID_CREDENTIALS: 'Invalid email or password. Please check your credentials and try again.',
+    EMAIL_NOT_VERIFIED: 'Email address not verified. Please verify your email before proceeding.',
+    EMAIL_NOT_VERIFIED_LOGIN: 'Email not verified. Please check your email for verification OTP.',
+    ACCOUNT_INACTIVE: 'Your account is currently inactive. Please contact support.',
+    USER_NOT_FOUND: 'No account found with this email address.',
+    USER_ALREADY_EXISTS: 'An account with this email address already exists.',
+    INVALID_OTP: 'Invalid OTP or email address. Please check and try again.',
+    OTP_EXPIRED: 'OTP has expired. Please request a new one.',
     OTP_STILL_VALID: 'Current OTP is still valid. Please wait before requesting a new one.',
     JWT_SECRET_MISSING: 'JWT secrets not configured',
-    TOKEN_ERROR: 'Token error',
+    TOKEN_ERROR: 'Authentication token error',
     RATE_LIMIT_EXCEEDED: 'Too many requests. Please try again later.',
   },
 
