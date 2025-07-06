@@ -77,6 +77,30 @@ export class UsersController {
   }
 
   /**
+   * Get users with advanced filtering (demonstrates QueryBuilderHelper features)
+   */
+  @Get('advanced')
+  async findUsersAdvanced(@Query() query: {
+    search?: string;
+    roles?: string[];
+    statuses?: string[];
+    isEmailVerified?: boolean;
+    createdAfter?: string;
+    createdBefore?: string;
+    page?: number;
+    perPage?: number;
+  }): Promise<GlobalResponseDto<any>> {
+    const processedQuery = {
+      ...query,
+      createdAfter: query.createdAfter ? new Date(query.createdAfter) : undefined,
+      createdBefore: query.createdBefore ? new Date(query.createdBefore) : undefined,
+    };
+    
+    const result = await this.usersService.findUsersAdvanced(processedQuery);
+    return new GlobalResponseDto(HttpStatus.OK, 'Get Users Advanced', result);
+  }
+
+  /**
    * Get user by ID
    */
   @Get(':id')

@@ -13,6 +13,7 @@ import { UsersStatusEnum } from './enums/users.status.enum';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UsersListDto } from './dto/users-list.dto';
 import { ListDataDto } from '../globals/dtos/response.data.dtos';
+import { QueryBuilderHelper } from '../globals/helpers/query-builder.helper';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -83,43 +84,53 @@ export class UsersService {
   async findAll(query: UsersListDto): Promise<ListDataDto<UserEntity>> {
     const { search, role, status, page = 0, perPage = 10 } = query;
 
-    const queryBuilder = this.userRepo.createQueryBuilder('user');
+    return QueryBuilderHelper
+      .create(this.userRepo, 'user')
+      .search(['firstName', 'lastName', 'email'], search)
+      .filter('role', role)
+      .filter('status', status)
+      .sort('createdAt', 'DESC')
+      .paginate(page, perPage)
+      .execute(query);
+  }
 
-    if (search) {
-      queryBuilder.andWhere(
-        '(user.firstName ILIKE :search OR user.lastName ILIKE :search OR user.email ILIKE :search)',
-        { search: `%${search}%` }
-      );
-    }
+  /**
+   * Get users with advanced filtering and analytics
+   * Demonstrates additional QueryBuilderHelper features
+   */
+  async findUsersAdvanced(query: {
+    search?: string;
+    roles?: string[];
+    statuses?: string[];
+    isEmailVerified?: boolean;
+    createdAfter?: Date;
+    createdBefore?: Date;
+    page?: number;
+    perPage?: number;
+  }): Promise<ListDataDto<UserEntity>> {
+    const { 
+      search, 
+      roles, 
+      statuses, 
+      isEmailVerified, 
+      createdAfter, 
+      createdBefore,
+      page = 0, 
+      perPage = 10 
+    } = query;
 
-    if (role) {
-      queryBuilder.andWhere('user.role = :role', { role });
-    }
-
-    if (status) {
-      queryBuilder.andWhere('user.status = :status', { status });
-    }
-
-    queryBuilder
-      .orderBy('user.createdAt', 'DESC')
-      .skip(page * perPage)
-      .take(perPage);
-
-    const [results, totalCount] = await queryBuilder.getManyAndCount();
-
-    return {
-      results,
-      pagination: {
-        totalCount,
-        page,
-        perPage,
-      },
-      filters: {
-        searchString: search,
-        role,
-        status,
-      },
-    };
+    return QueryBuilderHelper
+      .create(this.userRepo, 'user')
+      .search(['firstName', 'lastName', 'email', 'phoneNumber'], search)
+      .filter('role', roles, 'IN')
+      .filter('status', statuses, 'IN')
+      .filter('isEmailVerified', isEmailVerified)
+      .dateRange('createdAt', createdAfter, createdBefore)
+      .sort('createdAt', 'DESC')
+      .sort('firstName', 'ASC') // Secondary sort
+      .paginate(page, perPage)
+      .cache(`users_advanced_${JSON.stringify(query)}`, 30000) // 30 second cache
+      .execute();
   }
 
   /**
