@@ -1,5 +1,5 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule } from '@nestjs/config';
@@ -17,6 +17,8 @@ import { AppLoggerMiddleware } from './modules/globals/middlewares/app.logger.mi
 import { AwsModule } from './modules/aws/aws.module';
 import awsConfig from './modules/globals/config/aws.config';
 import { UploadsModule } from './modules/uploads/uploads.module';
+import { AuditLogEntity } from './modules/globals/entities/audit-log.entity';
+import { AuditLogInterceptor } from './modules/globals/interceptors/audit-log.interceptor';
 
 @Module({
   imports: [
@@ -41,6 +43,7 @@ import { UploadsModule } from './modules/uploads/uploads.module';
         });
       },
     }),
+    TypeOrmModule.forFeature([AuditLogEntity]),
     ThrottlerModule.forRoot([
       {
         ttl: 60000, // 1 minute
@@ -60,6 +63,10 @@ import { UploadsModule } from './modules/uploads/uploads.module';
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: AuditLogInterceptor,
     },
   ],
 })

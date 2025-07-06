@@ -126,7 +126,10 @@ export class AuthGuard implements CanActivate {
         throw new HttpException('User not found or inactive', HttpStatus.UNAUTHORIZED);
       }
 
-      // Double-check email verification status
+      // Double-check email verification status\
+      console.log("user", user);
+      console.log("user.isEmailVerified", user.isEmailVerified);
+      console.log("user.emailVerifiedAt", user.emailVerifiedAt);
       if (!user.isEmailVerified || !user.emailVerifiedAt) {
         throw new HttpException(AUTH_CONSTANTS.ERRORS.EMAIL_NOT_VERIFIED, HttpStatus.UNAUTHORIZED);
       }
