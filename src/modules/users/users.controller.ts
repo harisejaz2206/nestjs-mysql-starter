@@ -22,10 +22,8 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { UsersListDto } from './dto/users-list.dto';
 import { UserEntity } from './entities/user.entity';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles, AdminOnly, UserOnly } from '../auth/decorators/roles.decorator';
-import { UserRoleEnum } from './enums/user-enums.enum';
+import { AdminOnly } from '../auth/decorators/roles.decorator';
 import { AuthGuard } from '../auth/guards/auth.guard';
-import { User } from '../auth/decorators/user.decorator';
 
 @ApiController({
   prefix: '/users',
