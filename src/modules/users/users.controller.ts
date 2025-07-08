@@ -9,6 +9,7 @@ import {
   Put,
   Query,
   UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateSuperAdminUserDto } from './dto/create-super-admin-user.dto';
@@ -20,6 +21,11 @@ import { ApiQuery } from '@nestjs/swagger';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UsersListDto } from './dto/users-list.dto';
 import { UserEntity } from './entities/user.entity';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles, AdminOnly, UserOnly } from '../auth/decorators/roles.decorator';
+import { UserRoleEnum } from './enums/user-enums.enum';
+import { AuthGuard } from '../auth/guards/auth.guard';
+import { User } from '../auth/decorators/user.decorator';
 
 @ApiController({
   prefix: '/users',
@@ -33,9 +39,10 @@ export class UsersController {
   ) {}
 
   /**
-   * Get current user profile
+   * Get current user profile - Any authenticated user can access their own profile
    */
   @Get('profile')
+  @UseGuards(AuthGuard)  // Only authentication required, no role restriction
   async getProfile(): Promise<GlobalResponseDto<UserEntity>> {
     const user = await this.usersService.getCurrentUser();
     return new GlobalResponseDto(HttpStatus.OK, 'Get User Profile', user);
@@ -68,18 +75,24 @@ export class UsersController {
   }
 
   /**
-   * Get all users with pagination and filtering
+   * Get all users with pagination and filtering 
+   * Only admins should be able to view all users
    */
   @Get()
+  @UseGuards(AuthGuard, RolesGuard)
+  @AdminOnly()
   async findAll(@Query() query: UsersListDto): Promise<GlobalResponseDto<any>> {
     const result = await this.usersService.findAll(query);
     return new GlobalResponseDto(HttpStatus.OK, 'Get All Users', result);
   }
 
   /**
-   * Get users with advanced filtering (demonstrates QueryBuilderHelper features)
+   * Get users with advanced filtering 
+   * Advanced user management should be admin-only
    */
   @Get('advanced')
+  @UseGuards(AuthGuard, RolesGuard)
+  @AdminOnly() 
   async findUsersAdvanced(@Query() query: {
     search?: string;
     roles?: string[];
@@ -101,18 +114,24 @@ export class UsersController {
   }
 
   /**
-   * Get user by ID
+   * Get user by ID 
+   * Viewing other users' details should be admin-only
    */
   @Get(':id')
+  @UseGuards(AuthGuard, RolesGuard)
+  @AdminOnly() 
   async findOne(@Param('id', ParseIntPipe) id: number): Promise<GlobalResponseDto<UserEntity>> {
     const user = await this.usersService.findOne(id);
     return new GlobalResponseDto(HttpStatus.OK, 'Get User', user);
   }
 
   /**
-   * Update user by ID
+   * Update user by ID 
+   * User modification should be admin-only
    */
   @Put(':id')
+  @UseGuards(AuthGuard, RolesGuard)
+  @AdminOnly() 
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateUserDto: UpdateUserDto,
@@ -122,9 +141,12 @@ export class UsersController {
   }
 
   /**
-   * Delete user by ID (soft delete)
+   * Delete user by ID (soft delete) 
+   * User deletion should be admin-only
    */
   @Delete(':id')
+  @UseGuards(AuthGuard, RolesGuard)
+  @AdminOnly() 
   async remove(@Param('id', ParseIntPipe) id: number): Promise<GlobalResponseDto<null>> {
     await this.usersService.remove(id);
     return new GlobalResponseDto(HttpStatus.OK, 'User Deleted', null);
