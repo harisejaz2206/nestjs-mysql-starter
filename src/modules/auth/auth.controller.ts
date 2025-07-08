@@ -3,6 +3,7 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  UseGuards,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
@@ -18,6 +19,7 @@ import { ILogin } from './interfaces/login.interface';
 import { IToken } from './interfaces/auth-token.interface';
 import { ApiController, Public } from '../globals/decorators/global.decorators';
 import { AUTH_CONSTANTS } from './constants/auth.constants';
+import { UserRateLimitGuard, UserRateLimit } from './guards/user-rate-limit.guard';
 
 @ApiController({
   prefix: '/auth',
@@ -29,6 +31,8 @@ export class AuthController {
 
   @Public()
   @Post('/login')
+  @UseGuards(UserRateLimitGuard)
+  @UserRateLimit(3, 60000)  // 3 login attempts per 5 minutes per user/IP
   @Throttle({ default: AUTH_CONSTANTS.RATE_LIMIT.LOGIN })
   @ApiBody({ type: LoginDto })
   @ApiOperation({

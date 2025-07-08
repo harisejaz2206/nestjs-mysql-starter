@@ -6,6 +6,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AuthGuard } from './guards/auth.guard';
 import { RolesGuard } from './guards/roles.guard';
+import { UserRateLimitGuard } from './guards/user-rate-limit.guard';
 import { PasswordHelperService } from './helpers/password.helper';
 import { AuthHelperService } from './services/auth-helper.service';
 import { UserQueryService } from './services/user-query.service';
@@ -39,6 +40,7 @@ import { AUTH_CONSTANTS } from './constants/auth.constants';
     UserQueryService,
     AuthGuard,
     RolesGuard,
+    UserRateLimitGuard,
     TokenService,
     OtpService,
     UserValidationService,
@@ -47,6 +49,7 @@ import { AUTH_CONSTANTS } from './constants/auth.constants';
     AuthService,
     AuthGuard,
     RolesGuard,
+    UserRateLimitGuard,
     PasswordHelperService,
     AuthHelperService,
     UserQueryService,
