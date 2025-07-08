@@ -24,6 +24,7 @@ import { UserEntity } from './entities/user.entity';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { AdminOnly } from '../auth/decorators/roles.decorator';
 import { AuthGuard } from '../auth/guards/auth.guard';
+import { ResourceOwnershipGuard, ResourceOwnership } from '../auth/guards/resource-ownership.guard';
 
 @ApiController({
   prefix: '/users',
@@ -113,29 +114,56 @@ export class UsersController {
 
   /**
    * Get user by ID 
-   * Viewing other users' details should be admin-only
+   * Users can view their own profile, admins can view any user
    */
   @Get(':id')
-  @UseGuards(AuthGuard, RolesGuard)
-  @AdminOnly() 
+  @UseGuards(AuthGuard, ResourceOwnershipGuard)
+  @ResourceOwnership({ resourceType: 'user profile' })
   async findOne(@Param('id', ParseIntPipe) id: number): Promise<GlobalResponseDto<UserEntity>> {
     const user = await this.usersService.findOne(id);
     return new GlobalResponseDto(HttpStatus.OK, 'Get User', user);
   }
 
   /**
-   * Update user by ID 
-   * User modification should be admin-only
+   * Get user by ID (Admin Only - for admin panel)
+   * Admins can view any user's details with full access
    */
-  @Put(':id')
+  @Get('admin/:id')
   @UseGuards(AuthGuard, RolesGuard)
   @AdminOnly() 
+  async findOneAdmin(@Param('id', ParseIntPipe) id: number): Promise<GlobalResponseDto<UserEntity>> {
+    const user = await this.usersService.findOne(id);
+    return new GlobalResponseDto(HttpStatus.OK, 'Get User (Admin)', user);
+  }
+
+  /**
+   * Update user profile
+   * Users can update their own profile, admins can update any user
+   */
+  @Put(':id')
+  @UseGuards(AuthGuard, ResourceOwnershipGuard)
+  @ResourceOwnership({ resourceType: 'user profile' })
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateUserDto: UpdateUserDto,
   ): Promise<GlobalResponseDto<UserEntity>> {
     const user = await this.usersService.update(id, updateUserDto);
     return new GlobalResponseDto(HttpStatus.OK, 'User Updated', user);
+  }
+
+  /**
+   * Update user by ID (Admin Only)
+   * Admins can update any user with full privileges 
+   */
+  @Put('admin/:id')
+  @UseGuards(AuthGuard, RolesGuard)
+  @AdminOnly() 
+  async updateAdmin(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateUserDto: UpdateUserDto,
+  ): Promise<GlobalResponseDto<UserEntity>> {
+    const user = await this.usersService.update(id, updateUserDto);
+    return new GlobalResponseDto(HttpStatus.OK, 'User Updated (Admin)', user);
   }
 
   /**
