@@ -37,11 +37,11 @@ async function bootstrap() {
   });
   app.useGlobalPipes(
     new ValidationPipe({
-      transform: true,
-      whitelist: false,
+      transform: true, // Transform plain objects to class instances
+      whitelist: false, // Don't remove unknown properties
       validationError: {
-        target: true,
-        value: false,
+        target: true, // Include target in validation errors
+        value: false, // Don't include value in validation errors
       },
     }),
   );
