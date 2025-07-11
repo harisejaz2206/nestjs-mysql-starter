@@ -25,6 +25,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { AdminOnly } from '../auth/decorators/roles.decorator';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { ResourceOwnershipGuard, ResourceOwnership } from '../auth/guards/resource-ownership.guard';
+import { OrderByFieldGuard } from '../globals/guards/req.query.guards';
 
 @ApiController({
   prefix: '/users',
@@ -78,7 +79,7 @@ export class UsersController {
    * Only admins should be able to view all users
    */
   @Get()
-  @UseGuards(AuthGuard, RolesGuard)
+  @UseGuards(AuthGuard, RolesGuard, OrderByFieldGuard(UserEntity))
   @AdminOnly()
   async findAll(@Query() query: UsersListDto): Promise<GlobalResponseDto<any>> {
     const result = await this.usersService.findAll(query);
