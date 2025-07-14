@@ -360,6 +360,7 @@ export const AUTH_CONSTANTS = {
     RESET_PASSWORD: { limit: 5, ttl: 60000 },  // 5 reset attempts
     RESEND_OTP: { limit: 3, ttl: 60000 },     // 3 resend attempts
     REFRESH_TOKEN: { limit: 20, ttl: 60000 }, // 20 refresh attempts
+    LOGOUT: { limit: 10, ttl: 60000 }, // 10 logout attempts per minute
   },
   
   // Standardized Error Messages
@@ -376,6 +377,8 @@ export const AUTH_CONSTANTS = {
     JWT_SECRET_MISSING: 'JWT secrets not configured',
     TOKEN_ERROR: 'Authentication token error',
     RATE_LIMIT_EXCEEDED: 'Too many requests. Please try again later.',
+    TOKEN_INVALIDATED: 'Token has been invalidated. Please login again.',
+    TOKEN_VERSION_MISMATCH: 'Token version mismatch. Please login again.',
   },
   
   // Success Messages
@@ -387,6 +390,7 @@ export const AUTH_CONSTANTS = {
     PASSWORD_RESET: 'Password reset successful',
     OTP_SENT: 'OTP sent successfully',
     TOKEN_REFRESHED: 'Token refreshed successfully',
+    LOGOUT: 'Logout successful. All tokens have been invalidated.',
   },
 };
 ```
@@ -647,25 +651,63 @@ Client                    AuthService                UserQueryService       User
 ### 6. Token Refresh Flow
 
 ```
-Client                    AuthService                TokenService
-  │                          │                         │
-  ├─ POST /auth/refresh-token │                         │
-  │   { refreshToken } ─────► │                         │
-  │                          ├─ refreshToken() ────────► │
-  │                          │ ◄── newTokens ───────────┤
-  │ ◄── New tokens ──────────┤                         │
+Client                    AuthService                TokenService           UserQueryService
+  │                          │                         │                       │
+  ├─ POST /auth/refresh-token │                         │                       │
+  │   { refreshToken } ─────► │                         │                       │
+  │                          ├─ refreshToken() ────────► │                       │
+  │                          │ ├─ verifyToken()         │                       │
+  │                          │ ├─ findUserById() ─────────────────────────────► │
+  │                          │ │ ◄── user ──────────────┤                       │
+  │                          │ ├─ validateTokenVersion()│                       │
+  │                          │ ├─ generateTokens()      │                       │
+  │                          │ ◄── newTokens ───────────┤                       │
+  │ ◄── New tokens ──────────┤                         │                       │
 ```
 
 **Detailed Process:**
 1. **Token Validation**: `TokenService.refreshToken()` - validates refresh token signature & expiry
-2. **Token Generation**: Creates new access token + refresh token pair
-3. **Token Rotation**: Old refresh token is invalidated, new one issued
+2. **User Lookup**: Fetches current user from database to get latest `tokenVersion`
+3. **Version Validation**: Compares token's `tokenVersion` with user's current version
+4. **Token Generation**: Creates new access token + refresh token pair with current `tokenVersion`
+5. **Token Rotation**: Old refresh token is invalidated, new one issued
 
 **Security Features:**
-- Refresh token rotation (old token invalidated)
-- Separate secret for refresh tokens
-- Rate limiting (20 refresh attempts per minute)
-- 7-day refresh token expiry (configurable)
+- **Token version validation** - ensures tokens match current user state
+- **Database verification** - fetches latest user data for version check
+- **Refresh token rotation** (old token invalidated)
+- **Separate secret** for refresh tokens
+- **Rate limiting** (20 refresh attempts per minute)
+- **7-day refresh token expiry** (configurable)
+
+### 7. Logout Flow
+
+```
+Client                    AuthService                UserQueryService       AuthGuard
+  │                          │                         │                       │
+  ├─ POST /auth/logout ─────► │                         │                       │
+  │   Authorization: Bearer   │                         │                       │
+  │                          ├─ validateToken() ───────► │                       │
+  │                          │ ├─ findUserById() ──────► │                       │
+  │                          │ │ ◄── user ──────────────┤                       │
+  │                          │ ├─ incrementTokenVersion()─► │                       │
+  │                          │ │ ◄── updated ───────────┤                       │
+  │ ◄── Logout success ──────┤                         │                       │
+```
+
+**Detailed Process:**
+1. **Token Validation**: `AuthGuard` validates the access token and extracts user info
+2. **User Lookup**: `UserQueryService.findUserById()` - fetches current user data
+3. **Version Increment**: `UserQueryService.incrementTokenVersion()` - increments `tokenVersion` by 1
+4. **Token Invalidation**: All existing tokens become invalid due to version mismatch
+5. **Success Response**: Returns logout confirmation message
+
+**Security Features:**
+- **Server-side invalidation** - all tokens immediately become invalid
+- **Atomic operation** - version increment is database transaction
+- **No token blacklisting** - stateless approach using version numbers
+- **Rate limiting** (10 logout attempts per minute)
+- **Comprehensive cleanup** - invalidates all user sessions across devices
 
 ---
 
@@ -880,12 +922,66 @@ async validateToken(auth: string) {
 **Security Features:**
 - **Separate secrets** for access and refresh tokens (enhanced security)
 - **Token rotation** on refresh (prevents replay attacks)
+- **Token versioning** for server-side invalidation (secure logout)
 - **Minimal payload** (reduces token size and exposure)
 - **Database validation** on each request (ensures user still exists/active)
 - **Rate-limited updates** (prevents excessive DB writes)
 - **Configurable expiry** times for different environments
 
-### 3. OTP Security
+### 3. Token Versioning Security
+
+**Token Versioning Implementation:**
+- **Version Field**: Each user has a `tokenVersion` field (starts at 0)
+- **JWT Payload**: All tokens include the current `tokenVersion` when issued
+- **Version Validation**: AuthGuard compares token version with user's current version
+- **Server-side Invalidation**: Logout increments `tokenVersion`, invalidating all tokens
+- **Stateless Approach**: No token blacklisting required, uses version numbers
+
+**Security Implementation:**
+```typescript
+// UserEntity - token version field
+@Column({ default: 0 })
+tokenVersion: number;
+
+// JWT payload includes token version
+{
+  id: number,
+  email: string,
+  role: UserRole,
+  tokenVersion: number, // Current user token version
+  iat: number,
+  exp: number
+}
+
+// AuthGuard validates token version
+async validateToken(auth: string) {
+  // ... existing validation ...
+  
+  // Check token version matches user's current version
+  if (decoded.tokenVersion !== user.tokenVersion) {
+    throw new HttpException(
+      AUTH_CONSTANTS.ERRORS.TOKEN_INVALIDATED,
+      HttpStatus.UNAUTHORIZED
+    );
+  }
+}
+
+// Logout increments token version
+async logout(userId: number): Promise<void> {
+  await this.userQueryService.incrementTokenVersion(userId);
+  // All existing tokens become invalid due to version mismatch
+}
+```
+
+**Security Benefits:**
+- **Immediate Invalidation**: Logout instantly invalidates all user tokens
+- **Cross-Device Logout**: Invalidates tokens on all devices/sessions
+- **No Blacklist Storage**: Stateless approach, no additional storage needed
+- **Atomic Operations**: Version increment is database transaction
+- **Security Incident Response**: Can increment version to invalidate all sessions
+- **Token Replay Protection**: Old tokens cannot be reused after logout
+
+### 4. OTP Security
 
 **Configuration (OtpService):**
 - **4-digit numeric** (1000-9999 range)
@@ -935,7 +1031,7 @@ async findUserByEmailAndOtp(email: string, otp: string): Promise<UserEntity> {
 - **Single-use tokens** (cleared after successful verification)
 - **Automatic cleanup** of expired OTPs
 
-### 4. Rate Limiting & Protection
+### 5. Rate Limiting & Protection
 
 **Rate Limiting (AUTH_CONSTANTS.RATE_LIMIT):**
 ```typescript

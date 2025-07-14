@@ -327,6 +327,7 @@ export class AuthService {
    * @note Implements token rotation for enhanced security
    */
   async refreshToken(refreshToken: string): Promise<IToken> {
+    // TokenService now handles all validation internally
     return this.tokenService.refreshToken(refreshToken);
   }
 

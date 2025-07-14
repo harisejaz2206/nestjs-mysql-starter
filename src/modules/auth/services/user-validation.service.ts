@@ -76,10 +76,9 @@ export class UserValidationService {
    * Validate token version matches user's current version
    */
   validateTokenVersion(decodedTokenVersion: number, userTokenVersion: number): void {
-
     if (decodedTokenVersion !== userTokenVersion) {
       throw new HttpException(
-        AUTH_CONSTANTS.ERRORS.TOKEN_INVALIDATED,
+        AUTH_CONSTANTS.ERRORS.TOKEN_VERSION_MISMATCH,
         HttpStatus.UNAUTHORIZED
       );
     }

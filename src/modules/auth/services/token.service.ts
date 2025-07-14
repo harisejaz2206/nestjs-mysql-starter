@@ -4,10 +4,16 @@ import * as jwt from 'jsonwebtoken';
 import { UserEntity } from '../../users/entities/user.entity';
 import { IToken } from '../interfaces/auth-token.interface';
 import { AUTH_CONSTANTS } from '../constants/auth.constants';
+import { UserQueryService } from './user-query.service';
+import { UserValidationService } from './user-validation.service';
 
 @Injectable()
 export class TokenService {
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly userQueryService: UserQueryService,
+    private readonly userValidationService: UserValidationService,
+  ) {
     // Validate JWT secrets on startup
     this.validateJwtSecrets();
   }
@@ -63,12 +69,24 @@ export class TokenService {
     try {
       const { jwtSecret, jwtRefreshSecret } = this.getJwtSecrets();
 
+      // Verify refresh token
       const decoded = jwt.verify(refreshToken, jwtRefreshSecret as jwt.Secret) as any;
 
+      // Get current user with latest tokenVersion
+      const user = await this.userQueryService.findUserWithTokenVersion(decoded.id);
+      
+      // Validate user exists and token version matches
+      this.userValidationService.validateUserExists(user);
+      this.userValidationService.validateUserActive(user);
+      this.userValidationService.validateEmailVerified(user);
+      this.userValidationService.validateTokenVersion(decoded.tokenVersion, user.tokenVersion);
+
+      // Create new payload with current tokenVersion
       const newPayload = {
-        id: decoded.id,
-        email: decoded.email,
-        role: decoded.role,
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        tokenVersion: user.tokenVersion, // Include current tokenVersion
       };
 
       const token = jwt.sign(newPayload, jwtSecret as jwt.Secret, {
@@ -98,7 +116,8 @@ export class TokenService {
       const jwtSecret = this.configService.get<string>('JWT_SECRET');
       return jwt.verify(token, jwtSecret);
     } catch (error) {
-      throw new HttpException(AUTH_CONSTANTS.ERRORS.TOKEN_ERROR, HttpStatus.UNAUTHORIZED);
+      const message = AUTH_CONSTANTS.ERRORS.TOKEN_ERROR + ': ' + (error.message || error.name);
+      throw new HttpException(message, HttpStatus.UNAUTHORIZED);
     }
   }
 
@@ -110,7 +129,8 @@ export class TokenService {
       const jwtRefreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET');
       return jwt.verify(refreshToken, jwtRefreshSecret);
     } catch (error) {
-      throw new HttpException(AUTH_CONSTANTS.ERRORS.TOKEN_ERROR, HttpStatus.UNAUTHORIZED);
+      const message = AUTH_CONSTANTS.ERRORS.TOKEN_ERROR + ': ' + (error.message || error.name);
+      throw new HttpException(message, HttpStatus.UNAUTHORIZED);
     }
   }
 

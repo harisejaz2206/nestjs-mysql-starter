@@ -42,6 +42,7 @@ export const AUTH_CONSTANTS = {
     TOKEN_ERROR: 'Authentication token error',
     RATE_LIMIT_EXCEEDED: 'Too many requests. Please try again later.',
     TOKEN_INVALIDATED: 'Token has been invalidated. Please login again.',
+    TOKEN_VERSION_MISMATCH: 'Token version mismatch. Please login again.',
   },
 
   // Success Messages
