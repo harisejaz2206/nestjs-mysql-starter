@@ -24,6 +24,7 @@ export const AUTH_CONSTANTS = {
     RESET_PASSWORD: { limit: 5, ttl: 60000 },  // 5 reset attempts per minute
     RESEND_OTP: { limit: 3, ttl: 60000 },     // 3 resend attempts per minute
     REFRESH_TOKEN: { limit: 20, ttl: 60000 }, // 20 refresh attempts per minute
+    LOGOUT: { limit: 10, ttl: 60000 }, // 10 logout attempts per minute
   },
 
   // Error Messages

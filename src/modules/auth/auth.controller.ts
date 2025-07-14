@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
-import { ApiBody, ApiOperation } from '@nestjs/swagger';
+import { ApiBody, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
@@ -17,7 +17,7 @@ import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { GlobalResponseDto } from '../globals/dtos/global.response.dto';
 import { ILogin } from './interfaces/login.interface';
 import { IToken } from './interfaces/auth-token.interface';
-import { ApiController, Public } from '../globals/decorators/global.decorators';
+import { ApiController, Auth, Public } from '../globals/decorators/global.decorators';
 import { AUTH_CONSTANTS } from './constants/auth.constants';
 import { UserRateLimitGuard, UserRateLimit } from './guards/user-rate-limit.guard';
 import { AuthGuard } from './guards/auth.guard';
@@ -27,11 +27,12 @@ import { IAuthUser } from './interfaces/auth-user.interface';
 @ApiController({
   prefix: '/auth',
   tagName: 'Authentication',
-  isBearerAuth: false,
+  isBearerAuth: true,  // ← Change to true
 })
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  // Mark all auth routes as public
   @Public()
   @Post('/login')
   @UseGuards(UserRateLimitGuard)
@@ -160,9 +161,11 @@ export class AuthController {
     );
   }
 
+  // Logout route - no @Public(), so it's protected by default
   @Post('/logout')
-  @UseGuards(AuthGuard)  // Requires authentication
-  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 logout attempts per minute
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @Throttle({ default: AUTH_CONSTANTS.RATE_LIMIT.LOGOUT })
   @ApiOperation({
     summary: 'User Logout',
     description: 'Invalidate all user tokens by incrementing token version. Requires valid access token.',
