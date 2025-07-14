@@ -23,13 +23,15 @@ Our authentication system is built with **security-first principles** using indu
 **🎯 Core Philosophy:**
 - **Email verification mandatory** - No unverified users can access protected resources
 - **JWT + Refresh tokens** - Secure, stateless authentication with token refresh capability
+- **Token versioning** - Server-side token invalidation for secure logout and session management
 - **OTP-based verification** - Time-limited 4-digit codes for email verification and password reset
 - **Role-based access** - Simple but extensible User/Admin role system
 - **Clean separation** - Auth logic separated into focused services with single responsibilities
 
 **🚀 Benefits:**
 - ✅ **Stateless** - No session storage needed, scales horizontally
-- ✅ **Secure** - bcrypt password hashing, JWT expiration, OTP time limits
+- ✅ **Secure** - bcrypt password hashing, JWT expiration, OTP time limits, token versioning
+- ✅ **Session Control** - Server-side token invalidation for logout and security incidents
 - ✅ **User-friendly** - Simple OTP flow, automatic email verification
 - ✅ **Developer-friendly** - Clean architecture, easy to test and extend
 - ✅ **Production-ready** - Comprehensive error handling, validation, logging
@@ -297,6 +299,7 @@ export class PasswordHelperService {
   // Account management
   status: UsersStatusEnum, // ACTIVE | INACTIVE | SUSPENDED
   lastApiCallAt?: Date,   // Updated on each auth (rate-limited)
+  tokenVersion: number,   // Token version for server-side invalidation (default: 0)
   
   // Timestamps
   createdAt: Date,
@@ -312,6 +315,7 @@ export class PasswordHelperService {
   id: number,
   email: string,
   role: UserRole,
+  tokenVersion: number, // Token version for server-side invalidation
   iat: number,    // Issued at
   exp: number     // Expires at
 }
@@ -678,6 +682,7 @@ Client                    AuthService                TokenService
 | `/auth/reset-password` | POST | Reset password with OTP | ❌ Public |
 | `/auth/resend-otp` | POST | Resend verification OTP | ❌ Public |
 | `/auth/refresh-token` | POST | Refresh access token | ❌ Public |
+| `/auth/logout` | POST | Logout and invalidate all tokens | ✅ Protected |
 
 ### Request/Response Examples
 
@@ -769,6 +774,24 @@ Content-Type: application/json
 {
   "otp": "5678",
   "password": "NewSecurePass123!"
+}
+```
+
+#### Logout
+```http
+POST /api/v1/auth/logout
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+{}
+```
+
+```http
+HTTP/1.1 200 OK
+{
+  "statusCode": 200,
+  "message": "Logout successful. All tokens have been invalidated.",
+  "data": null
 }
 ```
 
