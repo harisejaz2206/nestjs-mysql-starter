@@ -14,6 +14,8 @@ import { isPublicRouteOrController } from '../../globals/helpers/guard.helpers';
 import { UsersStatusEnum } from '../../users/enums/users.status.enum';
 import { TokenService } from '../services/token.service';
 import { AUTH_CONSTANTS } from '../constants/auth.constants';
+import { UserValidationService } from '../services/user-validation.service';
+import { UserQueryService } from '../services/user-query.service';
 
 /** Metadata key for allowing unauthorized requests on specific routes */
 export const ALLOW_UNAUTHORIZED_REQUEST = 'allow_unauthorized_request';
@@ -53,6 +55,8 @@ export class AuthGuard implements CanActivate {
     private readonly userRepository: Repository<UserEntity>,
     private reflector: Reflector,
     private readonly tokenService: TokenService,
+    private readonly userValidationService: UserValidationService, // Add this
+    private readonly userQueryService: UserQueryService, // Add this
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -84,79 +88,42 @@ export class AuthGuard implements CanActivate {
   }
 
   /**
-   * Validates JWT token and returns user information
-   * 
-   * @param auth - Authorization header value (Bearer <token>)
-   * @returns User object with token payload and database info
-   * @throws HttpException for invalid tokens or inactive users
+   * Validate JWT token and user status
    */
   async validateToken(auth: string) {
-    // Ensure proper Bearer token format
-    if (auth.split(' ')[0] !== 'Bearer') {
-      throw new HttpException('Invalid token format', HttpStatus.UNAUTHORIZED);
-    }
-
-    const token = auth.split(' ')[1];
-
     try {
-      // Verify JWT token signature and expiration
-      const decoded: any = this.tokenService.verifyToken(token);
+      // Ensure proper Bearer token format
+      if (auth.split(' ')[0] !== 'Bearer') {
+        throw new HttpException('Invalid token format', HttpStatus.UNAUTHORIZED);
+      }
+      
+      const token = auth.split(' ')[1];
+      const decoded = this.tokenService.verifyToken(token);
 
-      // Verify user still exists and is active in database
-      const user = await this.userRepository.findOne({
-        where: { 
-          id: decoded.id, 
-          status: UsersStatusEnum.ACTIVE,
-          isEmailVerified: true 
-        },
-        select: [
-          'id', 
-          'email', 
-          'firstName', 
-          'lastName', 
-          'role', 
-          'status', 
-          'isEmailVerified',
-          'emailVerifiedAt',
-          'lastApiCallAt'
-        ],
-      });
+      // Get user with full auth fields (not just minimal fields)
+      const user = await this.userQueryService.findUserWithTokenVersion(decoded.id);
+      
+      // Validate user exists and is active
+      this.userValidationService.validateUserExists(user);
+      this.userValidationService.validateUserActive(user);
+      this.userValidationService.validateEmailVerified(user);
+      
+      // Validate token version
+      this.userValidationService.validateTokenVersion(decoded.tokenVersion, user.tokenVersion);
 
-      if (!user) {
-        throw new HttpException('User not found or inactive', HttpStatus.UNAUTHORIZED);
+      // Update last API call (rate-limited)
+      const now = Date.now();
+      if (!user.lastApiCallAt || now - user.lastApiCallAt.getTime() > AUTH_CONSTANTS.LAST_API_CALL_UPDATE_THRESHOLD) {
+        await this.userQueryService.updateUserLastApiCall(user.id);
+        user.lastApiCallAt = new Date(now);
       }
 
-      // Double-check email verification status\
-      console.log("user", user);
-      console.log("user.isEmailVerified", user.isEmailVerified);
-      console.log("user.emailVerifiedAt", user.emailVerifiedAt);
-      if (!user.isEmailVerified || !user.emailVerifiedAt) {
-        throw new HttpException(AUTH_CONSTANTS.ERRORS.EMAIL_NOT_VERIFIED, HttpStatus.UNAUTHORIZED);
+      return user;
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
       }
-
-      // Update last API call timestamp (rate-limited to prevent excessive DB writes)
-      const shouldUpdateApiCall = !user.lastApiCallAt || 
-        (Date.now() - user.lastApiCallAt.getTime()) > AUTH_CONSTANTS.LAST_API_CALL_UPDATE_THRESHOLD;
-
-      if (shouldUpdateApiCall) {
-        await this.userRepository.update(user.id, {
-          lastApiCallAt: new Date(),
-        });
-      }
-
-      // Return combined token payload and database user info
-      return {
-        ...decoded,
-        dbUser: user, // Include fresh database user info
-      };
-    } catch (err) {
-      // Re-throw HttpExceptions as-is
-      if (err instanceof HttpException) {
-        throw err;
-      }
-      // Convert other errors to authentication errors
-      const message = AUTH_CONSTANTS.ERRORS.TOKEN_ERROR + ': ' + (err.message || err.name);
-      throw new HttpException(message, HttpStatus.UNAUTHORIZED);
+      throw new HttpException(AUTH_CONSTANTS.ERRORS.TOKEN_ERROR, HttpStatus.UNAUTHORIZED);
     }
   }
 } 

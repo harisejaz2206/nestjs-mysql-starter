@@ -331,6 +331,14 @@ export class AuthService {
   }
 
   /**
+   * Logout user by invalidating all tokens
+   */
+  async logout(userId: number): Promise<void> {
+    // Increment token version to invalidate all existing tokens
+    await this.userQueryService.incrementTokenVersion(userId);
+  }
+
+  /**
    * Handle unverified email during login attempt
    * 
    * @description Automatically sends new OTP when user tries to login with unverified email

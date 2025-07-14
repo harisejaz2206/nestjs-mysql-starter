@@ -90,6 +90,13 @@ export class UserEntity extends CustomEntityBase {
   })
   emailVerifiedAt: Date;
 
+  @Column({
+    nullable: false,
+    type: 'int',
+    default: 0,
+  })
+  tokenVersion: number;
+
   @BeforeInsert()
   @BeforeUpdate()
   emailToLowerCase() {

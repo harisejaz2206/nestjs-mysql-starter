@@ -71,4 +71,16 @@ export class UserValidationService {
     this.validateUserExists(user);
     this.validateEmailVerified(user);
   }
+
+  /**
+   * Validate token version matches user's current version
+   */
+  validateTokenVersion(decodedTokenVersion: number, userTokenVersion: number): void {
+    if (decodedTokenVersion !== userTokenVersion) {
+      throw new HttpException(
+        AUTH_CONSTANTS.ERRORS.TOKEN_INVALIDATED,
+        HttpStatus.UNAUTHORIZED
+      );
+    }
+  }
 } 

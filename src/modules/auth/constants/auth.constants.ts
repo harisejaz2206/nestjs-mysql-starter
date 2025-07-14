@@ -40,6 +40,7 @@ export const AUTH_CONSTANTS = {
     JWT_SECRET_MISSING: 'JWT secrets not configured',
     TOKEN_ERROR: 'Authentication token error',
     RATE_LIMIT_EXCEEDED: 'Too many requests. Please try again later.',
+    TOKEN_INVALIDATED: 'Token has been invalidated. Please login again.',
   },
 
   // Success Messages
@@ -51,5 +52,6 @@ export const AUTH_CONSTANTS = {
     PASSWORD_RESET: 'Password reset successful',
     OTP_SENT: 'OTP sent successfully',
     TOKEN_REFRESHED: 'Token refreshed successfully',
+    LOGOUT: 'Logout successful. All tokens have been invalidated.',
   },
 }; 

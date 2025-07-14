@@ -16,6 +16,13 @@ export class UserQueryService {
     'isEmailVerified',
     'emailVerifiedAt',
     'lastApiCallAt',
+    'tokenVersion',
+  ];
+
+  // Auth-specific fields (minimal but sufficient for all guards)
+  private readonly authValidationFields = [
+    'id', 'email', 'firstName', 'lastName', 'role',
+    'status', 'isEmailVerified', 'tokenVersion', 'lastApiCallAt'
   ];
 
   constructor(
@@ -166,6 +173,38 @@ export class UserQueryService {
     } catch (error) {
       console.error('Database error in createUser:', error);
       throw error; // Re-throw to be handled by calling service
+    }
+  }
+
+  /**
+   * Increment user's token version (invalidates all existing tokens)
+   */
+  async incrementTokenVersion(userId: number): Promise<void> {
+    try {
+      await this.userRepository.increment(
+        { id: userId },
+        'tokenVersion',
+        1
+      );
+    } catch (error) {
+      console.error('Database error in incrementTokenVersion:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get user with token version for validation
+   * Returns full user fields needed for auth guards and decorators
+   */
+  async findUserWithTokenVersion(userId: number): Promise<UserEntity | null> {
+    try {
+      return await this.userRepository.findOne({
+        where: { id: userId },
+        select: this.selectUserFields as (keyof UserEntity)[], // Use full fields instead of minimal
+      });
+    } catch (error) {
+      console.error('Database error in findUserWithTokenVersion:', error);
+      throw error;
     }
   }
 } 

@@ -29,7 +29,7 @@ export class TokenService {
   }
 
   /**
-   * Generate JWT access and refresh tokens for a user
+   * Generate JWT access and refresh tokens for a user with token version
    */
   generateTokens(user: UserEntity): IToken {
     const { jwtSecret, jwtRefreshSecret } = this.getJwtSecrets();
@@ -38,6 +38,7 @@ export class TokenService {
       id: user.id,
       email: user.email,
       role: user.role,
+      tokenVersion: user.tokenVersion, // Add this line
     };
 
     const token = jwt.sign(payload, jwtSecret as jwt.Secret, {
@@ -90,15 +91,26 @@ export class TokenService {
   }
 
   /**
-   * Verify JWT token
+   * Verify token and return decoded payload
    */
   verifyToken(token: string): any {
     try {
-      const { jwtSecret } = this.getJwtSecrets();
-      return jwt.verify(token, jwtSecret as jwt.Secret);
-    } catch (err) {
-      const message = AUTH_CONSTANTS.ERRORS.TOKEN_ERROR + ': ' + (err.message || err.name);
-      throw new HttpException(message, HttpStatus.UNAUTHORIZED);
+      const jwtSecret = this.configService.get<string>('JWT_SECRET');
+      return jwt.verify(token, jwtSecret);
+    } catch (error) {
+      throw new HttpException(AUTH_CONSTANTS.ERRORS.TOKEN_ERROR, HttpStatus.UNAUTHORIZED);
+    }
+  }
+
+  /**
+   * Verify refresh token and return decoded payload
+   */
+  verifyRefreshToken(refreshToken: string): any {
+    try {
+      const jwtRefreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET');
+      return jwt.verify(refreshToken, jwtRefreshSecret);
+    } catch (error) {
+      throw new HttpException(AUTH_CONSTANTS.ERRORS.TOKEN_ERROR, HttpStatus.UNAUTHORIZED);
     }
   }
 

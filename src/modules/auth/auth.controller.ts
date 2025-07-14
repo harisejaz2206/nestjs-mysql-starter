@@ -20,6 +20,9 @@ import { IToken } from './interfaces/auth-token.interface';
 import { ApiController, Public } from '../globals/decorators/global.decorators';
 import { AUTH_CONSTANTS } from './constants/auth.constants';
 import { UserRateLimitGuard, UserRateLimit } from './guards/user-rate-limit.guard';
+import { AuthGuard } from './guards/auth.guard';
+import { User } from './decorators/user.decorator';
+import { IAuthUser } from './interfaces/auth-user.interface';
 
 @ApiController({
   prefix: '/auth',
@@ -154,6 +157,23 @@ export class AuthController {
       HttpStatus.OK,
       AUTH_CONSTANTS.SUCCESS.TOKEN_REFRESHED,
       result,
+    );
+  }
+
+  @Post('/logout')
+  @UseGuards(AuthGuard)  // Requires authentication
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 logout attempts per minute
+  @ApiOperation({
+    summary: 'User Logout',
+    description: 'Invalidate all user tokens by incrementing token version. Requires valid access token.',
+  })
+  @HttpCode(HttpStatus.OK)
+  async logout(@User() user: IAuthUser): Promise<GlobalResponseDto<null>> {
+    await this.authService.logout(user.id);
+    return new GlobalResponseDto(
+      HttpStatus.OK,
+      AUTH_CONSTANTS.SUCCESS.LOGOUT,
+      null,
     );
   }
 }
