@@ -89,13 +89,37 @@ ForbiddenException: Access denied. Required role(s): Admin. Your role: User
 
 This means the user is authenticated but doesn't have the required role. Check:
 1. User's role in database: `SELECT role FROM users WHERE id = ?`
-2. Ensure you're using correct enum values: `UserRoleEnum.Admin` vs `UserRoleEnum.User`
+2. Ensure you're using correct enum values: `UserRoleEnum.Admin` (value: 'admin') vs `UserRoleEnum.User` (value: 'user')
 
 ### 🔄 **Real Example from Your Codebase**
 
-Looking at your `UsersController`, I see an issue:
-Read file: src/modules/users/users.controller.ts
-I notice an issue in your controller. You have `@Roles(UserRoleEnum.User)` on the `findAll` method, but you probably want admin access for viewing all users. Let me fix this and show you better examples:
+Your `UsersController` is already properly configured with role-based access control:
+
+```typescript
+// ✅ CORRECT - Users can view their own profile
+@Get('profile')
+@UseGuards(AuthGuard)  // Any authenticated user
+async getProfile() { }
+
+// ✅ CORRECT - Only admins can view all users
+@Get()
+@UseGuards(AuthGuard, RolesGuard)
+@AdminOnly()
+async findAll() { }
+
+// ✅ CORRECT - Users can view their own profile, admins can view any
+@Get(':id')
+@UseGuards(AuthGuard, ResourceOwnershipGuard)
+@ResourceOwnership({ resourceType: 'user profile' })
+async findOne() { }
+
+// ✅ CORRECT - Admin-only route for user management
+@Get('admin/:id')
+@UseGuards(AuthGuard, RolesGuard)
+@AdminOnly()
+async findOneAdmin() { }
+```
+
 Perfect! Now let me show you additional examples of how to use `RolesGuard` in different scenarios:
 
 ## 📚 **Complete RolesGuard Usage Guide**
@@ -182,11 +206,10 @@ export class AdminController {
 
 1. **Create Test Users:**
 ```http
-# Create Admin User
-POST /api/v1/users/super-admin?secretCode=your-secret
+# Create Admin User (using actual endpoint)
+POST /api/v1/users/super-admin?secretCode=your-secret-code
 {
   "firstName": "Admin",
-  "lastName": "User", 
   "email": "admin@test.com",
   "password": "AdminPass123!"
 }

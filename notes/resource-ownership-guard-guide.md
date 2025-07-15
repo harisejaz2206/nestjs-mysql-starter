@@ -17,6 +17,7 @@ The `ResourceOwnershipGuard` ensures that users can only access resources they o
 - **Public Data** - News, articles, public content
 - **Admin-Only Resources** - System settings, admin panels
 - **Shared Resources** - Team data, public comments
+- **Complex Relationships** - Posts where you need to check `post.authorId === user.id` (use custom guards for these cases)
 
 ## 🔧 **Implementation**
 
@@ -76,7 +77,7 @@ export class UsersController {
 
 // Custom user field to check
 @ResourceOwnership({ userIdField: 'email', paramName: 'userEmail' })
-@Get('/users/:userEmail/data')
+@Get('/users/by-email/:userEmail/data')
 ```
 
 ## 🏗️ **Real-World Examples**
@@ -109,7 +110,7 @@ export class UsersController {
   @UseGuards(AuthGuard, RolesGuard)
   @AdminOnly()
   async adminUpdateUser(@Param('id', ParseIntPipe) id: number, @Body() updateDto: UpdateUserDto) {
-    return this.usersService.adminUpdate(id, updateDto);
+    return this.usersService.update(id, updateDto);
   }
 }
 ```
@@ -124,11 +125,13 @@ export class PostsController {
   @UseGuards(AuthGuard, ResourceOwnershipGuard)
   @ResourceOwnership({ 
     resourceType: 'post',
-    userIdField: 'id',  // Compare user.id with post.authorId
+    userIdField: 'id',  // Compare user.id with params.id
     paramName: 'id'     // Post ID from route
   })
   async updatePost(@Param('id', ParseIntPipe) id: number, @Body() updateDto: UpdatePostDto) {
-    // You'd need to implement logic to check post.authorId === user.id
+    // Note: This basic guard checks user.id === params.id
+    // For posts, you'd need custom logic to check post.authorId === user.id
+    // Consider implementing a custom PostOwnershipGuard for this use case
     return this.postsService.update(id, updateDto);
   }
   
@@ -137,6 +140,7 @@ export class PostsController {
   @UseGuards(AuthGuard, ResourceOwnershipGuard)
   @ResourceOwnership({ resourceType: 'post' })
   async deletePost(@Param('id', ParseIntPipe) id: number) {
+    // Same note as above - this is more suitable for direct user resource access
     return this.postsService.remove(id);
   }
 }

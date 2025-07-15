@@ -10,7 +10,7 @@ I've successfully added the `UserRateLimitGuard` to your login route! Here's wha
 ```typescript
 @Post('/login')
 @UseGuards(UserRateLimitGuard)           // NEW: Per-user/IP tracking
-@UserRateLimit(3, 300000)                // NEW: 3 attempts per 5 minutes
+@UserRateLimit(3, 60000)                 // NEW: 3 attempts per minute
 @Throttle({ default: AUTH_CONSTANTS.RATE_LIMIT.LOGIN })  // Existing: 5/min global
 ```
 
@@ -20,7 +20,7 @@ I've successfully added the `UserRateLimitGuard` to your login route! Here's wha
 - ✅ Applied to `src/modules/auth/auth.controller.ts` login route
 
 ### **What This Gives You:**
-- **Per-user tracking:** Each user can only attempt 3 logins per 5 minutes
+- **Per-user tracking:** Each user can only attempt 3 logins per minute
 - **IP fallback:** Unauthenticated requests are tracked by IP address
 - **Memory efficient:** Automatic cleanup of expired entries
 - **Configurable:** Easy to adjust limits per route
@@ -58,7 +58,7 @@ RATE_LIMIT: {
 ```typescript
 // src/modules/auth/guards/user-rate-limit.guard.ts
 @UseGuards(UserRateLimitGuard)
-@UserRateLimit(3, 300000)  // 3 attempts per 5 minutes per user/IP
+@UserRateLimit(3, 60000)  // 3 attempts per minute per user/IP
 ```
 **Protects:** Per authenticated user OR per IP address  
 **Benefit:** More targeted rate limiting than global limits
@@ -70,7 +70,7 @@ RATE_LIMIT: {
 @Public()
 @Post('/login')
 @UseGuards(UserRateLimitGuard)
-@UserRateLimit(3, 300000)  // 3 login attempts per 5 minutes per user/IP
+@UserRateLimit(3, 60000)  // 3 login attempts per minute per user/IP
 @Throttle({ default: AUTH_CONSTANTS.RATE_LIMIT.LOGIN })  // 5 attempts/min globally
 async login(@Body() loginDto: LoginDto) {
   return this.authService.login(loginDto);
@@ -154,7 +154,7 @@ async getNews() {
 
 | Endpoint Type | Global Limit | User/IP Limit | Reason |
 |---------------|--------------|---------------|---------|
-| **Login** | 5/min | **3 per 5min** | Prevent brute force (stricter per user) |
+| **Login** | 5/min | **3 per min** | Prevent brute force (stricter per user) |
 | **Registration** | 3/min | - | Prevent spam accounts |
 | **Password Reset** | 3/min | - | Prevent abuse |
 | **File Upload** | 5-10/min | **2 per 5min** | Prevent resource abuse |
@@ -168,8 +168,8 @@ async getNews() {
 ### **Login Example - Triple Protection:**
 ```typescript
 @Post('/login')
-@UseGuards(UserRateLimitGuard)           // Layer 3: 3 attempts per 5min per user/IP
-@UserRateLimit(3, 300000)
+@UseGuards(UserRateLimitGuard)           // Layer 3: 3 attempts per min per user/IP
+@UserRateLimit(3, 60000)
 @Throttle({ default: AUTH_CONSTANTS.RATE_LIMIT.LOGIN })  // Layer 2: 5 attempts per min globally
 // Layer 1: 100 requests per min globally (from app.module.ts)
 ```
@@ -177,9 +177,9 @@ async getNews() {
 **What happens:**
 1. **Global ThrottlerGuard:** Blocks after 100 total requests from IP in 1 minute
 2. **Endpoint-specific Throttle:** Blocks after 5 login attempts from IP in 1 minute  
-3. **UserRateLimitGuard:** Blocks after 3 login attempts from same user/IP in 5 minutes
+3. **UserRateLimitGuard:** Blocks after 3 login attempts from same user/IP in 1 minute
 
-**Strictest limit wins** - so user gets blocked after 3 attempts in 5 minutes.
+**Strictest limit wins** - so user gets blocked after 3 attempts in 1 minute.
 
 ## 🚨 **What Happens When Limits Are Exceeded**
 
