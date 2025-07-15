@@ -85,25 +85,37 @@ Our authentication system follows a **layered service architecture** with clear 
 
 ### 🏗️ Service Layer Architecture
 
-Our auth system is built with **7 specialized services**, each handling a specific domain:
+Our auth system is built with **7 specialized services** and **4 security guards**, each handling a specific domain:
 
+#### Services Layer
 | Service | Purpose | Key Responsibilities | Location |
 |---------|---------|---------------------|----------|
 | **AuthService** | Main orchestrator | Coordinates all auth flows, business logic | `auth.service.ts` |
-| **TokenService** | JWT management | Generate, verify, refresh JWT tokens | `services/token.service.ts` |
+| **TokenService** | JWT management | Generate, verify, refresh JWT tokens with versioning | `services/token.service.ts` |
 | **OtpService** | OTP operations | Generate, validate, expire OTP codes | `services/otp.service.ts` |
-| **UserQueryService** | Database operations | User CRUD operations, optimized queries | `services/user-query.service.ts` |
-| **UserValidationService** | User validation | Validate user state, permissions, status | `services/user-validation.service.ts` |
+| **UserQueryService** | Database operations | User CRUD operations, optimized queries, token versioning | `services/user-query.service.ts` |
+| **UserValidationService** | User validation | Validate user state, permissions, status, token versioning | `services/user-validation.service.ts` |
 | **AuthHelperService** | Utility functions | User mapping, helper methods | `services/auth-helper.service.ts` |
 | **PasswordHelperService** | Password security | bcrypt hashing, password comparison | `helpers/password.helper.ts` |
+
+#### Guards Layer
+| Guard | Purpose | Key Features | Usage |
+|-------|---------|--------------|-------|
+| **AuthGuard** | Global authentication | JWT validation, token versioning, applied globally | Applied globally in `main.ts` |
+| **RolesGuard** | Role-based access | Admin/User role enforcement, used with `@Roles()` | Applied with `@UseGuards()` |
+| **UserRateLimitGuard** | User rate limiting | Per-user/IP rate limiting, used with `@UserRateLimit()` | Applied per route |
+| **ResourceOwnershipGuard** | Resource ownership | Ensures users access own resources, used with `@ResourceOwnership()` | Applied per route |
 
 ### 🛡️ Security Layer
 
 | Component | Purpose | Key Features |
 |-----------|---------|--------------|
-| **AuthGuard** | Route protection | JWT validation, user verification, rate limiting |
-| **AuthConstants** | Security config | Rate limits, token expiry, error messages |
-| **DTOs** | Input validation | Request validation, sanitization |
+| **AuthGuard** | Global route protection | JWT validation, user verification, token versioning, rate limiting |
+| **RolesGuard** | Role-based access control | Admin/User role enforcement, multi-role support |
+| **UserRateLimitGuard** | User-specific rate limiting | Per-user/IP rate limiting, memory-based tracking |
+| **ResourceOwnershipGuard** | Resource ownership validation | Users access own resources, admin override |
+| **AuthConstants** | Security configuration | Rate limits, token expiry, error messages |
+| **Global Decorators** | Public route marking | @Public(), @ApiController(), @Auth() |
 
 ---
 
@@ -397,10 +409,10 @@ export const AUTH_CONSTANTS = {
 
 ### 🛡️ Security Layer
 
-#### 1. AuthGuard (Route Protection)
+#### 1. AuthGuard (Global Route Protection)
 **Location:** `src/modules/auth/guards/auth.guard.ts`
 
-The AuthGuard is a **global guard** that protects all routes by default, with opt-out for public routes.
+The AuthGuard is a **global guard** applied to all routes automatically via `main.ts`. It provides comprehensive JWT authentication with token versioning support.
 
 ```typescript
 @Injectable()
@@ -409,6 +421,8 @@ export class AuthGuard implements CanActivate {
     @InjectRepository(UserEntity) private readonly userRepository: Repository<UserEntity>,
     private reflector: Reflector,
     private readonly tokenService: TokenService,
+    private readonly userValidationService: UserValidationService,
+    private readonly userQueryService: UserQueryService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -418,21 +432,140 @@ export class AuthGuard implements CanActivate {
     // 4. Extract and verify JWT token
     // 5. Validate user exists and is active
     // 6. Check email verification status
-    // 7. Update last API call (rate-limited)
-    // 8. Attach user info to request
+    // 7. Validate token version (server-side invalidation)
+    // 8. Update last API call (rate-limited)
+    // 9. Attach user info to request
   }
 }
 ```
 
 **Security Features:**
-- **Global protection**: All routes protected by default
-- **Token validation**: JWT signature and expiry verification
-- **User verification**: Database lookup for user status
-- **Email verification**: Ensures verified users only
-- **Rate-limited updates**: Prevents excessive DB writes
-- **Flexible bypass**: Public routes and unauthorized access support
+- **Global protection**: Applied automatically to all routes in `main.ts`
+- **Token versioning**: Validates JWT token version against user's current version
+- **Bearer token validation**: Enforces proper `Bearer <token>` format
+- **Comprehensive user validation**: Database lookup for user status, email verification
+- **Rate-limited updates**: Prevents excessive DB writes on `lastApiCallAt`
+- **Flexible bypass**: Public routes with `@Public()` and unauthorized access with `@AllowUnauthorizedRequest()`
 
-**Usage Patterns:**
+#### 2. RolesGuard (Role-Based Access Control)
+**Location:** `src/modules/auth/guards/roles.guard.ts`
+
+The RolesGuard enforces role-based access control and must be used after AuthGuard.
+
+```typescript
+@Injectable()
+export class RolesGuard implements CanActivate {
+  constructor(private reflector: Reflector) {}
+
+  canActivate(context: ExecutionContext): boolean {
+    const requiredRoles = this.reflector.getAllAndOverride<UserRoleEnum[]>(ROLES_KEY, [
+      context.getHandler(), 
+      context.getClass()
+    ]);
+    
+    if (!requiredRoles) return true;
+    
+    const user = context.switchToHttp().getRequest().user;
+    return requiredRoles.some(role => user.role === role);
+  }
+}
+```
+
+**Usage with Decorators:**
+```typescript
+// Multiple roles (OR logic)
+@UseGuards(AuthGuard, RolesGuard)
+@Roles(UserRoleEnum.Admin, UserRoleEnum.Moderator)
+@Get('/admin/dashboard')
+
+// Convenience decorators
+@UseGuards(AuthGuard, RolesGuard)
+@AdminOnly()
+@Delete('/users/:id')
+
+@UseGuards(AuthGuard, RolesGuard)
+@UserOnly()
+@Get('/profile')
+```
+
+#### 3. UserRateLimitGuard (User-Specific Rate Limiting)
+**Location:** `src/modules/auth/guards/user-rate-limit.guard.ts`
+
+Provides user-specific rate limiting beyond the global ThrottlerGuard.
+
+```typescript
+@Injectable()
+export class UserRateLimitGuard implements CanActivate {
+  private readonly attempts = new Map<string, { count: number; resetTime: number }>();
+  
+  canActivate(context: ExecutionContext): boolean {
+    const request = context.switchToHttp().getRequest();
+    const user = request.user;
+    
+    // Create unique key: prefer user ID, fallback to IP
+    const key = user ? `user:${user.id}` : `ip:${request.ip}`;
+    
+    // Check rate limit with custom or default values
+    return this.checkRateLimit(key, limit, windowMs);
+  }
+}
+```
+
+**Usage:**
+```typescript
+@UseGuards(UserRateLimitGuard)
+@UserRateLimit(3, 60000)  // 3 requests per minute per user
+@Post('/login')
+async login(@Body() loginDto: LoginDto) {
+  return this.authService.login(loginDto);
+}
+```
+
+#### 4. ResourceOwnershipGuard (Resource Access Control)
+**Location:** `src/modules/auth/guards/resource-ownership.guard.ts`
+
+Ensures users can only access their own resources, with configurable admin override.
+
+```typescript
+@Injectable()
+export class ResourceOwnershipGuard implements CanActivate {
+  constructor(private reflector: Reflector) {}
+
+  canActivate(context: ExecutionContext): boolean {
+    const request = context.switchToHttp().getRequest();
+    const user = request.user;
+    const options = this.reflector.get<ResourceOwnershipOptions>(RESOURCE_OWNERSHIP_KEY, context.getHandler());
+    
+    // Admin override (configurable)
+    if (options?.allowAdminOverride && user.role === UserRoleEnum.Admin) {
+      return true;
+    }
+    
+    // Check resource ownership
+    const resourceId = request.params[options?.paramName || 'id'];
+    return this.checkOwnership(user.id, resourceId);
+  }
+}
+```
+
+**Usage:**
+```typescript
+@UseGuards(AuthGuard, ResourceOwnershipGuard)
+@ResourceOwnership()  // Basic usage - checks params.id against user.id
+@Get('/users/:id')
+
+@ResourceOwnership({ paramName: 'userId', allowAdminOverride: false })
+@Put('/users/:userId/sensitive-data')
+```
+
+**Global Integration:**
+```typescript
+// main.ts - Global guard setup
+const authGuard = app.get(AuthGuard);
+app.useGlobalGuards(authGuard);
+```
+
+**Route Protection Patterns:**
 ```typescript
 // Protected route (default behavior)
 @Get('/profile')
@@ -440,7 +573,7 @@ async getProfile(@User() user: IAuthUser) {
   return user;
 }
 
-// Public route (bypasses auth)
+// Public route (bypasses auth completely)
 @Public()
 @Post('/login')
 async login(@Body() loginDto: LoginDto) {
@@ -453,6 +586,14 @@ async login(@Body() loginDto: LoginDto) {
 async getPublicData(@User() user?: IAuthUser) {
   // User is undefined if not authenticated
   return this.service.getData(user?.id);
+}
+
+// Role-based protection
+@UseGuards(RolesGuard)
+@Roles(UserRoleEnum.Admin)
+@Get('/admin/users')
+async getAllUsers() {
+  return this.usersService.findAll();
 }
 ```
 
@@ -1031,9 +1172,29 @@ async findUserByEmailAndOtp(email: string, otp: string): Promise<UserEntity> {
 - **Single-use tokens** (cleared after successful verification)
 - **Automatic cleanup** of expired OTPs
 
-### 5. Rate Limiting & Protection
+### 5. Multi-Layer Rate Limiting System
 
-**Rate Limiting (AUTH_CONSTANTS.RATE_LIMIT):**
+**Global Rate Limiting (ThrottlerGuard):**
+```typescript
+// Applied globally in app.module.ts
+ThrottlerModule.forRoot([{
+  ttl: 60000,     // 1 minute window
+  limit: 100,     // 100 requests per minute (global default)
+}])
+```
+
+**User-Specific Rate Limiting (UserRateLimitGuard):**
+```typescript
+// Per-user or per-IP rate limiting
+@UseGuards(UserRateLimitGuard)
+@UserRateLimit(3, 60000)  // 3 requests per minute per user/IP
+@Post('/login')
+
+// Memory-based tracking with automatic cleanup
+private readonly attempts = new Map<string, { count: number; resetTime: number }>();
+```
+
+**Route-Specific Rate Limiting (AUTH_CONSTANTS.RATE_LIMIT):**
 ```typescript
 RATE_LIMIT: {
   LOGIN: { limit: 5, ttl: 60000 },          // 5 login attempts per minute
@@ -1043,8 +1204,18 @@ RATE_LIMIT: {
   RESET_PASSWORD: { limit: 5, ttl: 60000 },  // 5 reset attempts per minute
   RESEND_OTP: { limit: 3, ttl: 60000 },     // 3 resend attempts per minute
   REFRESH_TOKEN: { limit: 20, ttl: 60000 }, // 20 refresh attempts per minute
+  LOGOUT: { limit: 10, ttl: 60000 },        // 10 logout attempts per minute
 }
+
+// Applied using @Throttle decorator
+@Throttle({ default: AUTH_CONSTANTS.RATE_LIMIT.LOGIN })
+@Post('/login')
 ```
+
+**Rate Limiting Hierarchy:**
+1. **Global ThrottlerGuard**: 100 requests/minute (applies to all routes)
+2. **Route-Specific Throttle**: Individual limits per endpoint
+3. **UserRateLimitGuard**: Per-user/IP specific limits (most restrictive)
 
 **Database Query Optimization:**
 ```typescript
@@ -1073,47 +1244,170 @@ validateUserForAuth(user: UserEntity): void {
 }
 ```
 
-### 5. Route Protection (AuthGuard)
+### 5. Global Decorators & Configuration
 
-**Global Protection Features:**
-- **Default protection** for all routes (opt-out model)
-- **Token extraction** from Authorization header (`Bearer <token>`)
-- **Comprehensive validation** (signature, expiry, user status)
-- **Database verification** (user exists, active, verified)
-- **Request context** injection (user data available in controllers)
-- **Flexible bypass** options for public routes
+#### Global Decorators
+**Location:** `src/modules/globals/decorators/global.decorators.ts`
 
-**Usage Patterns:**
+**Core Decorators:**
 ```typescript
-// Protected route (default behavior)
-@Get('/profile')
-async getProfile(@User() user: IAuthUser) {
-  return user;
-}
-
-// Public route (bypasses auth completely)
+// Mark routes as public (bypasses AuthGuard)
 @Public()
 @Post('/login')
-async login(@Body() loginDto: LoginDto) {
-  return this.authService.login(loginDto);
-}
+async login() { /* ... */ }
 
-// Optional auth (user may or may not be authenticated)
+// Apply authentication with options
+@Auth({ isPublic: false, authorization: true })
+@Get('/protected')
+async protectedRoute() { /* ... */ }
+
+// Complete controller setup with auth configuration
+@ApiController({
+  prefix: '/auth',
+  tagName: 'Authentication',
+  isBearerAuth: true,  // Enables bearer auth for controller
+})
+export class AuthController {}
+```
+
+**AllowUnauthorizedRequest Decorator:**
+```typescript
+// Allows optional authentication (user may be undefined)
 @AllowUnauthorizedRequest()
 @Get('/public-data')
 async getPublicData(@User() user?: IAuthUser) {
-  // User is undefined if not authenticated
+  // user is undefined if not authenticated
   return this.service.getData(user?.id);
 }
+```
 
-// Role-based protection (requires additional RoleGuard)
-@UseGuards(RoleGuard)
-@Roles('ADMIN')
-@Get('/admin/users')
-async getAllUsers() {
-  return this.usersService.findAll();
+#### Global Configuration
+**Location:** `src/main.ts`
+
+```typescript
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  
+  // Global authentication guard applied to all routes
+  const authGuard = app.get(AuthGuard);
+  app.useGlobalGuards(authGuard);
+  
+  // Global rate limiting (separate from user rate limiting)
+  app.useGlobalGuards(new ThrottlerGuard());
+  
+  // Global validation pipe for DTOs
+  app.useGlobalPipes(new ValidationPipe());
+  
+  // Global response formatting
+  app.useGlobalInterceptors(new ValidateTransformInterceptor());
+  
+  // Global exception handling
+  app.useGlobalFilters(new HttpExceptionFilter());
 }
 ```
+
+#### Application Architecture
+**Location:** `src/app.module.ts`
+
+```typescript
+@Module({
+  providers: [
+    // Global throttling (100 requests per minute)
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    
+    // Global audit logging for compliance
+    { provide: APP_INTERCEPTOR, useClass: AuditLogInterceptor },
+  ],
+})
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    // Global HTTP request logging
+    consumer.apply(AppLoggerMiddleware).forRoutes('*');
+  }
+}
+```
+
+### 6. Advanced Features
+
+#### Environment Configuration & Validation
+**Location:** `src/modules/globals/dtos/env.config.dto.ts`
+
+The system uses comprehensive environment validation with type transformation:
+
+```typescript
+export class EnvConfigDto {
+  // Database configuration (required)
+  @IsString() @IsDefined() DB_HOST: string;
+  @IsString() @IsDefined() DB_USER: string;
+  @IsNumber() @Transform(({ value }) => parseInt(value, 10)) @IsDefined() DB_PORT: number;
+  
+  // JWT configuration (required)
+  @IsString() @IsDefined() JWT_SECRET: string;
+  @IsString() @IsDefined() JWT_REFRESH_SECRET: string;
+  
+  // Optional configuration with defaults
+  @IsString() @IsOptional() JWT_EXPIRES_IN?: string;  // defaults to '24h'
+  @IsNumber() @Transform(({ value }) => parseInt(value, 10)) @IsOptional() 
+  OTP_EXPIRATION_MINUTES?: number;  // defaults to 15
+}
+```
+
+**Environment Validation Process:**
+1. **Startup Validation**: All environment variables validated before app starts
+2. **Type Transformation**: String environment variables converted to proper types
+3. **Fail Fast**: Application won't start with invalid configuration
+4. **Clear Errors**: Detailed error messages for missing/invalid configuration
+
+#### Audit Logging & Monitoring
+**Location:** `src/modules/globals/interceptors/audit-log.interceptor.ts`
+
+Automatic audit logging for compliance and security monitoring:
+
+```typescript
+@Injectable()
+export class AuditLogInterceptor implements NestInterceptor {
+  // Automatically logs:
+  // - User actions with timing information
+  // - State-changing operations (POST, PUT, PATCH, DELETE)
+  // - Both successful and failed operations
+  // - Request/response data (sanitized)
+  // - User context and IP addresses
+}
+```
+
+#### Global Response Standardization
+**Location:** `src/modules/globals/dtos/global.response.dto.ts`
+
+All API responses follow a consistent structure:
+
+```typescript
+// Success Response Format
+{
+  statusCode: 200,
+  message: "Operation successful",
+  data: { /* actual response data */ }
+}
+
+// Error Response Format
+{
+  statusCode: 400,
+  message: "Validation failed",
+  data: null,
+  error: { /* error details */ },
+  errorOptions: { /* additional context */ }
+}
+```
+
+#### Advanced Validation
+**Custom Validators:** `src/modules/globals/validators/custom.class.validators.ts`
+- `@IsNullable()` - Allows empty but not null/undefined
+- `@IsDefinedString()` - Combines multiple string validations
+- Database entity validation with TypeORM integration
+
+**Form Data Validation:** `src/modules/globals/decorators/validation/form-data.validator.ts`
+- Handles multipart/form-data with automatic parsing
+- Supports JSON field parsing and number conversion
+- Integrated with class-validator for consistent validation
 
 ---
 
@@ -1337,7 +1631,7 @@ WHERE email = 'user@example.com';
 
 ### 3. Token Validation Errors
 
-**Symptom:** `401 Unauthorized - Token error`
+**Symptom:** `401 Unauthorized - Token error` or `401 Unauthorized - Token has been invalidated`
 
 **Common Causes & Solutions:**
 
@@ -1348,6 +1642,8 @@ WHERE email = 'user@example.com';
 | Malformed token | Missing `Bearer ` prefix | Ensure Authorization header format |
 | User not found | User deleted/deactivated | Check user status in database |
 | Email not verified | User exists but unverified | Complete email verification |
+| **Token invalidated** | Token version mismatch after logout | Login again to get new tokens |
+| **Token version mismatch** | User's tokenVersion incremented | All old tokens invalid, login required |
 
 **Debug Token Issues:**
 ```typescript
@@ -1355,7 +1651,34 @@ WHERE email = 'user@example.com';
 const decoded = jwt.decode(token);
 console.log('Token payload:', decoded);
 console.log('Token expired?', Date.now() >= decoded.exp * 1000);
+console.log('Token version:', decoded.tokenVersion);
+
+// Check user's current token version in database
+SELECT id, email, tokenVersion FROM users WHERE id = decoded.id;
 ```
+
+### 7. Token Versioning Issues
+
+**Symptom:** `401 Unauthorized - Token has been invalidated. Please login again.`
+
+**This is Expected Behavior When:**
+- User logs out (tokenVersion incremented)
+- Admin invalidates user sessions (security incident)
+- User changes password (if implemented)
+
+**Debugging Steps:**
+```sql
+-- Check user's current token version
+SELECT id, email, tokenVersion, updatedAt FROM users WHERE email = 'user@example.com';
+
+-- Check if recent logout occurred
+SELECT * FROM audit_logs WHERE userId = ? AND action LIKE '%logout%' ORDER BY createdAt DESC LIMIT 5;
+```
+
+**Solutions:**
+- This is normal security behavior - user needs to login again
+- For development: You can manually reset tokenVersion to 0 (not recommended for production)
+- Implement proper error handling in frontend to redirect to login
 
 ### 4. Password Validation Errors
 
